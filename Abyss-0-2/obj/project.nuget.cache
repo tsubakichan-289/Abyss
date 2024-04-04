@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "ZS7cMsu/NbZRbetdgV/92W2Nj40OdOi8RJu4k8v/RJaBE9cPVXOK0LMVFnZK1G/ZZuOAk2hzG5OY1LNXFXhjJw==",
+  "success": true,
+  "projectFilePath": "d:\\Abyss-0-2\\Abyss-0-2\\Abyss-0-2.fsproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Masuo\\.nuget\\packages\\fsharp.core\\8.0.100\\fsharp.core.8.0.100.nupkg.sha512"
+  ],
+  "logs": []
+}

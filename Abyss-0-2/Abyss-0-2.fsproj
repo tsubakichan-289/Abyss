@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <RootNamespace>Abyss_0_2</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="src\music\BGM\enviroment2.mp3" />
+    <Content Include="src\music\BGM\white_-06_30.wav" />
+    <Content Include="src\pictures\00000\0.png" />
+    <Content Include="src\pictures\00001\1.png" />
+    <Content Include="src\pictures\00002\2.png" />
+    <Content Include="src\pictures\00003\3.png" />
+    <Content Include="src\pictures\00004\4.png" />
+    <Content Include="src\pictures\00005\5.png" />
+    <Content Include="src\pictures\00006\6.png" />
+    <Content Include="src\pictures\00007\7.png" />
+    <Content Include="src\pictures\00008\8.png" />
+    <Content Include="src\pictures\00009\9.png" />
+    <Content Include="src\pictures\00010\10.png" />
+    <Content Include="src\pictures\00011\11.png" />
+    <Content Include="src\pictures\00012\12.png" />
+    <Content Include="src\pictures\00013\13.png" />
+    <Content Include="src\pictures\00014\14.png" />
+    <Content Include="src\pictures\00015\15.png" />
+    <Content Include="src\pictures\00016\16.png" />
+    <Content Include="src\pictures\00017\17.png" />
+    <Content Include="src\pictures\00018\18.png" />
+    <Content Include="src\pictures\00019\19.png" />
+    <Content Include="src\pictures\00020\20.png" />
+    <Content Include="src\pictures\00021\21.png" />
+    <Content Include="src\pictures\00022\22.png" />
+    <Content Include="src\pictures\00023\23.png" />
+    <Content Include="src\pictures\00024\24.png" />
+    <Content Include="src\pictures\00025\25.png" />
+    <Content Include="src\pictures\00026\26.png" />
+    <Content Include="src\pictures\00027\27.png" />
+    <Content Include="src\pictures\00028\28.png" />
+    <Content Include="src\pictures\00029\29.png" />
+    <Content Include="src\pictures\00030\30.png" />
+    <Content Include="src\pictures\00031\31.png" />
+    <Content Include="src\pictures\00032\32.png" />
+    <Content Include="src\pictures\00033\33.png" />
+    <Content Include="src\pictures\00034\34.png" />
+    <Content Include="src\pictures\00035\35.png" />
+    <Content Include="src\pictures\00036\36.png" />
+    <Content Include="src\pictures\00037\37.png" />
+    <Content Include="src\pictures\00038\38.png" />
+    <Content Include="src\pictures\00039\39.png" />
+    <Content Include="src\pictures\00040\40.png" />
+    <Content Include="src\pictures\00041\41.png" />
+    <Content Include="src\pictures\00042\42.png" />
+    <Content Include="src\pictures\00043\43.png" />
+    <Content Include="src\pictures\00044\44.png" />
+    <Content Include="src\pictures\00045\45.png" />
+    <Content Include="src\pictures\00046\46.png" />
+    <Content Include="src\pictures\00047\debug.png" />
+    <Content Include="src\pictures\99997\1.png" />
+    <Content Include="src\pictures\99997\2.png" />
+    <Content Include="src\pictures\99997\3.png" />
+    <Content Include="src\pictures\99997\4.png" />
+    <Content Include="src\pictures\99997\5.png" />
+    <Content Include="src\pictures\99997\6.png" />
+    <Content Include="src\pictures\99997\7.png" />
+    <Content Include="src\pictures\99997\8.png" />
+    <Content Include="src\pictures\99998\0gake.png" />
+    <Content Include="src\pictures\99998\10pl_z.png" />
+    <Content Include="src\pictures\99998\11pl_c.png" />
+    <Content Include="src\pictures\99998\12pl_e.png" />
+    <Content Include="src\pictures\99998\1iwa.png" />
+    <Content Include="src\pictures\99998\2naraku.png" />
+    <Content Include="src\pictures\99998\3test.png" />
+    <Content Include="src\pictures\99998\4yuka.png" />
+    <Content Include="src\pictures\99998\5pl_hidari.png" />
+    <Content Include="src\pictures\99998\6pl_shita.png" />
+    <Content Include="src\pictures\99998\7pl_migi.png" />
+    <Content Include="src\pictures\99998\8pl_ue.png" />
+    <Content Include="src\pictures\99998\9pl_q.png" />
+    <Content Include="src\pictures\99998\yuka.png" />
+    <Content Include="src\pictures\99999\yuka.png" />
+    <Compile Include="Debug.fs" />
+    <Compile Include="Noise.fs" />
+    <Compile Include="Tile.fs" />
+    <Compile Include="Chunk.fs" />
+    <Compile Include="Dungeon.fs" />
+    <Compile Include="Command.fs" />
+    <Compile Include="Player.fs" />
+    <Compile Include="Game.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="src\music\SE\" />
+  </ItemGroup>
+</Project>

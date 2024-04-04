@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33122.133
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Abyss-0-2", "Abyss-0-2\Abyss-0-2.fsproj", "{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B35CB19F-BD04-4B40-9142-6A1B2526BCB9}
+	EndGlobalSection
+EndGlobal
