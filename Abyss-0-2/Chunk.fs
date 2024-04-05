@@ -3,6 +3,7 @@ module Chunk
 open System.Windows.Forms
 open System.Drawing
 open Tile
+open Biome
 
 type ChunkXY = class
     val x : int
@@ -16,6 +17,7 @@ type ChunkXY = class
 type Chunk = class
     val map : array<array<TileCategory>>
     val mutable tileIds : array<array<Tile>>
+    //val biome : Biome
 
     new (mapFunc, (chunkXY : ChunkXY)) =
         let map: TileCategory array array = [|
@@ -35,6 +37,7 @@ type Chunk = class
                                     | Yuka -> 29
                                     | Kabe -> 45
                                     | Ana -> 46
+                                    | Mizu -> 47
                     )
                 |]
             |]
@@ -63,6 +66,7 @@ type Chunk = class
                                 | Yuka -> 29
                                 | Kabe -> 45
                                 | Ana -> 46
+                                | Mizu -> 47
             )
 
         |]

@@ -6,7 +6,7 @@ open System.Drawing
 open System
 open System.Diagnostics
 
-type TileCategory = Yuka | Kabe | Ana
+type TileCategory = Yuka | Kabe | Ana | Mizu
 
 type Tile = class
     val frames : Image array
@@ -67,15 +67,28 @@ let floatToId (f: float) =
     | (false, false) -> 2
     | _              -> 0
 
-let floatToCategory (f: float) = 
-    match (f < 45.0, f < 55.0) with
-    | (true,  true ) -> Kabe
-    | (false, true ) -> Yuka
-    | (false, false) -> Ana
-    | _              -> Ana
+let sepFunc (_A : float, _B : float, x : float, y : float)=
+    let c = _A - _B + 1.0
+    let a = (c + sqrt(c*c - 4.0 *_A)) / 2.0
+    let b = (c - sqrt(c*c - 4.0 *_A)) / 2.0
+    let n = sqrt(_A * _B)
+
+    match (x > a * 100.0, y > b * 100.0) with
+    | (true , false) -> Ana
+    | (false, true ) -> Mizu
+    | (true , true ) -> match (x > (a + (1.0 - a) / 20.0) * 100.0, y > (b + (1.0 - b) / 20.0) * 100.0) with
+                        | (true, true) -> Kabe
+                        | _ -> Yuka
+    | (false, false) -> match (x < (a / 20.0) * 100.0, y < (b / 20.0) * 100.0) with
+                        | (true, true) -> Kabe
+                        | _ -> Yuka
+
+let floatToCategory (f1: float,f2: float) = 
+    sepFunc (0.2, 0.3, f1, f2)
 
 let tileCatToId (tiles : array<array<TileCategory>>) i l = 
     match tiles.[i].[l] with
     | Yuka -> 29
     | Kabe -> 45
     | Ana -> 46
+    | Mizu -> 47

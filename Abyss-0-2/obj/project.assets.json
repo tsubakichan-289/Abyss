@@ -2,7 +2,7 @@
   "version": 3,
   "targets": {
     "net6.0-windows7.0": {
-      "FSharp.Core/8.0.100": {
+      "FSharp.Core/8.0.200": {
         "type": "package",
         "compile": {
           "lib/netstandard2.1/FSharp.Core.dll": {
@@ -55,19 +55,166 @@
             "locale": "zh-Hant"
           }
         }
+      },
+      "FSharp.Data/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Csv.Core": "6.4.0",
+          "FSharp.Data.Html.Core": "6.4.0",
+          "FSharp.Data.Http": "6.4.0",
+          "FSharp.Data.Json.Core": "6.4.0",
+          "FSharp.Data.Runtime.Utilities": "6.4.0",
+          "FSharp.Data.WorldBank.Core": "6.4.0",
+          "FSharp.Data.Xml.Core": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Csv.Core/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Runtime.Utilities": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Csv.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Csv.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Html.Core/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Csv.Core": "6.4.0",
+          "FSharp.Data.Runtime.Utilities": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Html.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Html.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Http/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Http.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Http.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Json.Core/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Http": "6.4.0",
+          "FSharp.Data.Runtime.Utilities": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Json.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Json.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Runtime.Utilities/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Http": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Runtime.Utilities.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Runtime.Utilities.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.WorldBank.Core/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Http": "6.4.0",
+          "FSharp.Data.Json.Core": "6.4.0",
+          "FSharp.Data.Runtime.Utilities": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.WorldBank.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.WorldBank.Core.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "FSharp.Data.Xml.Core/6.4.0": {
+        "type": "package",
+        "dependencies": {
+          "FSharp.Core": "6.0.1",
+          "FSharp.Data.Http": "6.4.0",
+          "FSharp.Data.Json.Core": "6.4.0",
+          "FSharp.Data.Runtime.Utilities": "6.4.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FSharp.Data.Xml.Core.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netstandard2.0/FSharp.Data.Xml.Core.dll": {
+            "related": ".xml"
+          }
+        }
       }
     }
   },
   "libraries": {
-    "FSharp.Core/8.0.100": {
-      "sha512": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg==",
+    "FSharp.Core/8.0.200": {
+      "sha512": "qnxoF3Fu0HzfOeYdrwmQOsLP1v+OtOMSIYkNVUwf6nGqWzL03Hh4r6VFCvCb54jlsgtt3WADVYkKkrgdeY5kiQ==",
       "type": "package",
-      "path": "fsharp.core/8.0.100",
+      "path": "fsharp.core/8.0.200",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
-        "fsharp.core.8.0.100.nupkg.sha512",
+        "fsharp.core.8.0.200.nupkg.sha512",
         "fsharp.core.nuspec",
         "lib/netstandard2.0/FSharp.Core.dll",
         "lib/netstandard2.0/FSharp.Core.xml",
@@ -100,27 +247,162 @@
         "lib/netstandard2.1/zh-Hans/FSharp.Core.resources.dll",
         "lib/netstandard2.1/zh-Hant/FSharp.Core.resources.dll"
       ]
+    },
+    "FSharp.Data/6.4.0": {
+      "sha512": "KfQbbvlLgP0zaZyp8YhS2+FsxBvhYC9o08emNMcwmpAvnLz9vEMbNefYFQiZX5i/0kAMYh5oDqTbvx3RJSbJFA==",
+      "type": "package",
+      "path": "fsharp.data/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.6.4.0.nupkg.sha512",
+        "fsharp.data.nuspec",
+        "lib/netstandard2.0/FSharp.Data.dll",
+        "lib/netstandard2.0/FSharp.Data.xml",
+        "logo.png",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Core.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Csv.Core.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Csv.Core.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.DesignTime.deps.json",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.DesignTime.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Html.Core.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Html.Core.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Http.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Http.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Json.Core.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Json.Core.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Runtime.Utilities.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Runtime.Utilities.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.WorldBank.Core.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.WorldBank.Core.xml",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Xml.Core.dll",
+        "typeproviders/fsharp41/netstandard2.0/FSharp.Data.Xml.Core.xml"
+      ]
+    },
+    "FSharp.Data.Csv.Core/6.4.0": {
+      "sha512": "kpQnKLPq2OjT7b3uWxDCraY0jbSJohA5hFCZ9bcTzOX0TqU6kVgcR5gCT5jN/dA4y5/qqtT5g9wCDVTmBE/enQ==",
+      "type": "package",
+      "path": "fsharp.data.csv.core/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.csv.core.6.4.0.nupkg.sha512",
+        "fsharp.data.csv.core.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Csv.Core.dll",
+        "lib/netstandard2.0/FSharp.Data.Csv.Core.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.Html.Core/6.4.0": {
+      "sha512": "W5yJ0YarszKRKavgiGLFCsbUSmD6CIUNwX3Upq1l8XgICWKU+IIms1xKA3wIsgyHEJlF+Yviy3tp0b7qnq+I5w==",
+      "type": "package",
+      "path": "fsharp.data.html.core/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.html.core.6.4.0.nupkg.sha512",
+        "fsharp.data.html.core.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Html.Core.dll",
+        "lib/netstandard2.0/FSharp.Data.Html.Core.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.Http/6.4.0": {
+      "sha512": "Q9JNs1xkvoiVRLRMr+RtK6rQHKEQYaG3SckdVl4vYI17mZmUIrWyBDuzLFnO53K9d7zvHrOIjXzGyZ5bGpLCrA==",
+      "type": "package",
+      "path": "fsharp.data.http/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.http.6.4.0.nupkg.sha512",
+        "fsharp.data.http.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Http.dll",
+        "lib/netstandard2.0/FSharp.Data.Http.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.Json.Core/6.4.0": {
+      "sha512": "iJmuQWrSdErpA9I/UwY1Yzo5ZdXzYqPuoA7Kz32aybkgVYTTV7U1LzA/tAEOMVCmYM9/PHi9F6Oam8qDSbgAGw==",
+      "type": "package",
+      "path": "fsharp.data.json.core/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.json.core.6.4.0.nupkg.sha512",
+        "fsharp.data.json.core.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Json.Core.dll",
+        "lib/netstandard2.0/FSharp.Data.Json.Core.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.Runtime.Utilities/6.4.0": {
+      "sha512": "V5JihdafBjtwJYP2Tgf49K/jwFMvNfq4vRY2cPDJ2sL9bPYJQHiEApLJCF43P1sPFskGkQiNi+mWi0+4zVmTGg==",
+      "type": "package",
+      "path": "fsharp.data.runtime.utilities/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.runtime.utilities.6.4.0.nupkg.sha512",
+        "fsharp.data.runtime.utilities.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Runtime.Utilities.dll",
+        "lib/netstandard2.0/FSharp.Data.Runtime.Utilities.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.WorldBank.Core/6.4.0": {
+      "sha512": "Luv+XWQkaANMFzp+0Hr3N/7ALrJp9U80V+OjHs13iYuJiCPGI2Jn2v+SS4rNlMxp+rGb6fW/azbuQMsZfku7PQ==",
+      "type": "package",
+      "path": "fsharp.data.worldbank.core/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.worldbank.core.6.4.0.nupkg.sha512",
+        "fsharp.data.worldbank.core.nuspec",
+        "lib/netstandard2.0/FSharp.Data.WorldBank.Core.dll",
+        "lib/netstandard2.0/FSharp.Data.WorldBank.Core.xml",
+        "logo.png"
+      ]
+    },
+    "FSharp.Data.Xml.Core/6.4.0": {
+      "sha512": "t10Mu6N77xyQQ6T6atITp2ZUOetiBy9fAVL124GCUaTDwdZYUcL4sDOp/oY4IX0kvgzR19pMvkEiBk2tlA8Lvg==",
+      "type": "package",
+      "path": "fsharp.data.xml.core/6.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fsharp.data.xml.core.6.4.0.nupkg.sha512",
+        "fsharp.data.xml.core.nuspec",
+        "lib/netstandard2.0/FSharp.Data.Xml.Core.dll",
+        "lib/netstandard2.0/FSharp.Data.Xml.Core.xml",
+        "logo.png"
+      ]
     }
   },
   "projectFileDependencyGroups": {
     "net6.0-windows7.0": [
-      "FSharp.Core >= 8.0.100"
+      "FSharp.Core >= 8.0.200",
+      "FSharp.Data >= 6.4.0"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Masuo\\.nuget\\packages\\": {}
+    "C:\\Users\\tsuba\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Abyss-0-2\\Abyss-0-2\\Abyss-0-2.fsproj",
+      "projectUniqueName": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Abyss-0-2.fsproj",
       "projectName": "Abyss-0-2",
-      "projectPath": "D:\\Abyss-0-2\\Abyss-0-2\\Abyss-0-2.fsproj",
-      "packagesPath": "C:\\Users\\Masuo\\.nuget\\packages\\",
-      "outputPath": "D:\\Abyss-0-2\\Abyss-0-2\\obj\\",
+      "projectPath": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Abyss-0-2.fsproj",
+      "packagesPath": "C:\\Users\\tsuba\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\Masuo\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\tsuba\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -128,7 +410,8 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\sdk\\8.0.100\\FSharp\\library-packs": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
+        "C:\\Program Files\\dotnet\\sdk\\8.0.202\\FSharp\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -136,6 +419,11 @@
           "targetAlias": "net6.0-windows",
           "projectReferences": {}
         }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
       }
     },
     "frameworks": {
@@ -145,7 +433,12 @@
           "FSharp.Core": {
             "include": "Runtime, Compile, Build, Native, Analyzers, BuildTransitive",
             "target": "Package",
-            "version": "[8.0.100, )",
+            "version": "[8.0.200, )",
+            "generatePathProperty": true
+          },
+          "FSharp.Data": {
+            "target": "Package",
+            "version": "[6.4.0, )",
             "generatePathProperty": true
           }
         },
@@ -168,7 +461,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.202\\RuntimeIdentifierGraph.json"
       }
     }
   }

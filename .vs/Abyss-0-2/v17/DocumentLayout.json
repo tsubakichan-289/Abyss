@@ -1,0 +1,53 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\tsuba\\source\\repos\\Abyss\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}|Abyss-0-2\\Abyss-0-2.fsproj|c:\\users\\tsuba\\source\\repos\\abyss\\abyss-0-2\\tile.fs||{8A5AA6CF-46E3-4520-A70A-7393D15233E9}",
+      "RelativeMoniker": "D:0:0:{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}|Abyss-0-2\\Abyss-0-2.fsproj|solutionrelative:abyss-0-2\\tile.fs||{8A5AA6CF-46E3-4520-A70A-7393D15233E9}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}|Abyss-0-2\\Abyss-0-2.fsproj|c:\\users\\tsuba\\source\\repos\\abyss\\abyss-0-2\\chunk.fs||{8A5AA6CF-46E3-4520-A70A-7393D15233E9}",
+      "RelativeMoniker": "D:0:0:{A61E720F-FD90-49ED-BF5A-BA6E6C7EF378}|Abyss-0-2\\Abyss-0-2.fsproj|solutionrelative:abyss-0-2\\chunk.fs||{8A5AA6CF-46E3-4520-A70A-7393D15233E9}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Chunk.fs",
+              "DocumentMoniker": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Chunk.fs",
+              "RelativeDocumentMoniker": "Abyss-0-2\\Chunk.fs",
+              "ToolTip": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Chunk.fs",
+              "RelativeToolTip": "Abyss-0-2\\Chunk.fs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABkAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2024-04-05T00:04:51.689Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Tile.fs",
+              "DocumentMoniker": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Tile.fs",
+              "RelativeDocumentMoniker": "Abyss-0-2\\Tile.fs",
+              "ToolTip": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Tile.fs",
+              "RelativeToolTip": "Abyss-0-2\\Tile.fs",
+              "ViewState": "AQIAACUAAAAAAAAAAAAkwFgAAAA7AAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2024-04-05T00:04:51.633Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

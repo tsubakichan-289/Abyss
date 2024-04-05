@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net6.0-windows</TargetFramework>
@@ -78,10 +78,12 @@
     <Content Include="src\pictures\99998\8pl_ue.png" />
     <Content Include="src\pictures\99998\9pl_q.png" />
     <Content Include="src\pictures\99998\yuka.png" />
-    <Content Include="src\pictures\99999\yuka.png" />
-    <Compile Include="Debug.fs" />
+	<Content Include="src\pictures\99999\yuka.png" />
+	<Content Include="src\biomes\1.csv" />
+	<Compile Include="Debug.fs" />
     <Compile Include="Noise.fs" />
     <Compile Include="Tile.fs" />
+    <Compile Include="Biome.fs" />
     <Compile Include="Chunk.fs" />
     <Compile Include="Dungeon.fs" />
     <Compile Include="Command.fs" />
@@ -91,5 +93,9 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="src\music\SE\" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <PackageReference Include="FSharp.Data" Version="6.4.0" />
   </ItemGroup>
 </Project>
