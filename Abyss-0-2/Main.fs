@@ -39,7 +39,7 @@ let timer =
     t.Enabled <- true
     t.Tick.Add(fun evArgs -> 
         pBox.Size <- new Size (15 * (64 * form.ClientSize.Width / 960) ,15 * (64 * form.ClientSize.Height / 960))
-        game.tick
+        game.tick form.ClientSize
         pBox.Refresh ())
     t.Start ()
     t

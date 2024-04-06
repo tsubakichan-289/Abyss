@@ -2,7 +2,7 @@
   "version": 3,
   "targets": {
     "net6.0-windows7.0": {
-      "FSharp.Core/8.0.200": {
+      "FSharp.Core/8.0.100": {
         "type": "package",
         "compile": {
           "lib/netstandard2.1/FSharp.Core.dll": {
@@ -206,15 +206,15 @@
     }
   },
   "libraries": {
-    "FSharp.Core/8.0.200": {
-      "sha512": "qnxoF3Fu0HzfOeYdrwmQOsLP1v+OtOMSIYkNVUwf6nGqWzL03Hh4r6VFCvCb54jlsgtt3WADVYkKkrgdeY5kiQ==",
+    "FSharp.Core/8.0.100": {
+      "sha512": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg==",
       "type": "package",
-      "path": "fsharp.core/8.0.200",
+      "path": "fsharp.core/8.0.100",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
-        "fsharp.core.8.0.200.nupkg.sha512",
+        "fsharp.core.8.0.100.nupkg.sha512",
         "fsharp.core.nuspec",
         "lib/netstandard2.0/FSharp.Core.dll",
         "lib/netstandard2.0/FSharp.Core.xml",
@@ -380,29 +380,24 @@
   },
   "projectFileDependencyGroups": {
     "net6.0-windows7.0": [
-      "FSharp.Core >= 8.0.200",
+      "FSharp.Core >= 8.0.100",
       "FSharp.Data >= 6.4.0"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\tsuba\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\Masuo\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Abyss-0-2.fsproj",
+      "projectUniqueName": "C:\\Users\\Masuo\\Source\\Repos\\AbyssGi\\Abyss-0-2\\Abyss-0-2.fsproj",
       "projectName": "Abyss-0-2",
-      "projectPath": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\Abyss-0-2.fsproj",
-      "packagesPath": "C:\\Users\\tsuba\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\tsuba\\source\\repos\\Abyss\\Abyss-0-2\\obj\\",
+      "projectPath": "C:\\Users\\Masuo\\Source\\Repos\\AbyssGi\\Abyss-0-2\\Abyss-0-2.fsproj",
+      "packagesPath": "C:\\Users\\Masuo\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Masuo\\Source\\Repos\\AbyssGi\\Abyss-0-2\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\tsuba\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Users\\Masuo\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -410,8 +405,7 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
-        "C:\\Program Files\\dotnet\\sdk\\8.0.202\\FSharp\\library-packs": {},
+        "C:\\Program Files\\dotnet\\sdk\\8.0.100\\FSharp\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -419,11 +413,6 @@
           "targetAlias": "net6.0-windows",
           "projectReferences": {}
         }
-      },
-      "restoreAuditProperties": {
-        "enableAudit": "true",
-        "auditLevel": "low",
-        "auditMode": "direct"
       }
     },
     "frameworks": {
@@ -433,7 +422,7 @@
           "FSharp.Core": {
             "include": "Runtime, Compile, Build, Native, Analyzers, BuildTransitive",
             "target": "Package",
-            "version": "[8.0.200, )",
+            "version": "[8.0.100, )",
             "generatePathProperty": true
           },
           "FSharp.Data": {
@@ -461,7 +450,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.202\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100\\RuntimeIdentifierGraph.json"
       }
     }
   }

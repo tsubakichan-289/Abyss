@@ -8,18 +8,18 @@
     ".NETCoreApp,Version=v6.0": {
       "Abyss-0-2/1.0.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data": "6.4.0"
         },
         "runtime": {
           "Abyss-0-2.dll": {}
         }
       },
-      "FSharp.Core/8.0.200": {
+      "FSharp.Core/8.0.100": {
         "runtime": {
           "lib/netstandard2.1/FSharp.Core.dll": {
             "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.2.24.6203"
+            "fileVersion": "8.1.23.52306"
           }
         },
         "resources": {
@@ -66,7 +66,7 @@
       },
       "FSharp.Data/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Csv.Core": "6.4.0",
           "FSharp.Data.Html.Core": "6.4.0",
           "FSharp.Data.Http": "6.4.0",
@@ -84,7 +84,7 @@
       },
       "FSharp.Data.Csv.Core/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Runtime.Utilities": "6.4.0"
         },
         "runtime": {
@@ -96,7 +96,7 @@
       },
       "FSharp.Data.Html.Core/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Csv.Core": "6.4.0",
           "FSharp.Data.Runtime.Utilities": "6.4.0"
         },
@@ -109,7 +109,7 @@
       },
       "FSharp.Data.Http/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200"
+          "FSharp.Core": "8.0.100"
         },
         "runtime": {
           "lib/netstandard2.0/FSharp.Data.Http.dll": {
@@ -120,7 +120,7 @@
       },
       "FSharp.Data.Json.Core/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Http": "6.4.0",
           "FSharp.Data.Runtime.Utilities": "6.4.0"
         },
@@ -133,7 +133,7 @@
       },
       "FSharp.Data.Runtime.Utilities/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Http": "6.4.0"
         },
         "runtime": {
@@ -145,7 +145,7 @@
       },
       "FSharp.Data.WorldBank.Core/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Http": "6.4.0",
           "FSharp.Data.Json.Core": "6.4.0",
           "FSharp.Data.Runtime.Utilities": "6.4.0"
@@ -159,7 +159,7 @@
       },
       "FSharp.Data.Xml.Core/6.4.0": {
         "dependencies": {
-          "FSharp.Core": "8.0.200",
+          "FSharp.Core": "8.0.100",
           "FSharp.Data.Http": "6.4.0",
           "FSharp.Data.Json.Core": "6.4.0",
           "FSharp.Data.Runtime.Utilities": "6.4.0"
@@ -179,12 +179,12 @@
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.Core/8.0.200": {
+    "FSharp.Core/8.0.100": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-qnxoF3Fu0HzfOeYdrwmQOsLP1v+OtOMSIYkNVUwf6nGqWzL03Hh4r6VFCvCb54jlsgtt3WADVYkKkrgdeY5kiQ==",
-      "path": "fsharp.core/8.0.200",
-      "hashPath": "fsharp.core.8.0.200.nupkg.sha512"
+      "sha512": "sha512-ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg==",
+      "path": "fsharp.core/8.0.100",
+      "hashPath": "fsharp.core.8.0.100.nupkg.sha512"
     },
     "FSharp.Data/6.4.0": {
       "type": "package",

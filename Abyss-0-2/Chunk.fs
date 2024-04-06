@@ -16,7 +16,7 @@ type ChunkXY = class
 
 type Chunk = class
     val map : array<array<TileCategory>>
-    val mutable tileIds : array<array<Tile>>
+    val mutable tileIds : array<array<int>>
     //val biome : Biome
 
     new (mapFunc, (chunkXY : ChunkXY)) =
@@ -29,16 +29,12 @@ type Chunk = class
             map = map
             tileIds = [|
                 for i: int in 0 .. 15 -> [|
-                    for l: int in 0 .. 15 -> Tile.idToTile ( 
-                        if (i = 0) || (i = 15) || (l = 0) || (l = 15) 
-                            then 47 
-                            else 
-                                match map.[i % 16].[l % 16] with 
-                                    | Yuka -> 29
-                                    | Kabe -> 45
-                                    | Ana -> 46
-                                    | Mizu -> 47
-                    )
+                    for l: int in 0 .. 15 -> 
+                        match map.[i % 16].[l % 16] with 
+                        | Yuka -> 29
+                        | Kabe -> 45
+                        | Ana -> 46
+                        | Mizu -> 48
                 |]
             |]
         }
@@ -48,26 +44,20 @@ type Chunk = class
     member this.drawChunk (evArgs : PaintEventArgs) (x: int32) (y: int32) (dx: int) (dy: int) = 
         for i: int32 in 0 .. 15 do 
             for l: int32 in 0 .. 15 do 
-                (this.tileIds.[i].[l]).drawTile2 evArgs (x + i) (y + l) dx dy
+                (tiles.[this.tileIds.[i].[l]]).drawTile2 evArgs (x + i) (y + l) dx dy
     
-    member this.setTile (tile: Tile) (x: int) (y: int) = this.tileIds.[x].[y] <- tile
+    member this.setTile (tile: int) (x: int) (y: int) = this.tileIds.[x].[y] <- tile
 
     member this.setTiles = 
         this.tileIds <- 
             [|for i: int in 0 .. 15 
                 ->
                 [|for l: int in 0 .. 15 
-                    -> 
-                    Tile.idToTile ( 
-                    if (i = 0) || (i = 15) || (l = 0) || (l = 15) 
-                        then 47 
-                        else match this.getMapData (i) (l) 
-                                with 
-                                | Yuka -> 29
-                                | Kabe -> 45
-                                | Ana -> 46
-                                | Mizu -> 47
-            )
+                    -> match this.getMapData (i) (l) with 
+                        | Yuka -> 29
+                        | Kabe -> 45
+                        | Ana -> 46
+                        | Mizu -> 48
 
         |]
     |]

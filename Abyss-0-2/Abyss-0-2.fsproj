@@ -8,6 +8,22 @@
   <ItemGroup>
     <Content Include="src\music\BGM\enviroment2.mp3" />
     <Content Include="src\music\BGM\white_-06_30.wav" />
+    <Content Include="src\pictures\00048\0.png" />
+    <Content Include="src\pictures\00048\1.png" />
+    <Content Include="src\pictures\00048\10.png" />
+    <Content Include="src\pictures\00048\11.png" />
+    <Content Include="src\pictures\00048\12.png" />
+    <Content Include="src\pictures\00048\13.png" />
+    <Content Include="src\pictures\00048\14.png" />
+    <Content Include="src\pictures\00048\15.png" />
+    <Content Include="src\pictures\00048\2.png" />
+    <Content Include="src\pictures\00048\3.png" />
+    <Content Include="src\pictures\00048\4.png" />
+    <Content Include="src\pictures\00048\5.png" />
+    <Content Include="src\pictures\00048\6.png" />
+    <Content Include="src\pictures\00048\7.png" />
+    <Content Include="src\pictures\00048\8.png" />
+    <Content Include="src\pictures\00048\9.png" />
     <Content Include="src\pictures\00000\0.png" />
     <Content Include="src\pictures\00001\1.png" />
     <Content Include="src\pictures\00002\2.png" />

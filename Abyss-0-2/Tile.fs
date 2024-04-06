@@ -91,4 +91,4 @@ let tileCatToId (tiles : array<array<TileCategory>>) i l =
     | Yuka -> 29
     | Kabe -> 45
     | Ana -> 46
-    | Mizu -> 47
+    | Mizu -> 48

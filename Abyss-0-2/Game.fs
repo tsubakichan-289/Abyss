@@ -60,7 +60,11 @@ type Game = class
                 | A -> - this.moving_D, 0
                 | Q -> - this.moving_D,this.moving_D
 
-    member this.tick = 
+    member this.tick size =
+        for t in tiles do
+            t.nextFrame 
+            t.size <- size
+
         match this.state with 
         | Stay -> ()
         | Moving -> 
@@ -103,8 +107,8 @@ type Game = class
                                             |]
                                         |]
                                     for q in 1 .. 14 do 
-                                        newChunkMap.[(a + i),(b + l - 1)].setTile (idToTile (tileCatToId list q 1)) q 15
-                                        newChunkMap.[(a + i),(b + l)].setTile (idToTile (tileCatToId list q 2)) q 0
+                                        newChunkMap.[(a + i),(b + l - 1)].setTile (tileCatToId list q 1) q 15
+                                        newChunkMap.[(a + i),(b + l)].setTile (tileCatToId list q 2) q 0
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
                             if cb
@@ -119,8 +123,8 @@ type Game = class
                                             |]
                                         |]
                                     for q in 1 .. 14 do 
-                                        newChunkMap.[(a + i),(b + l)].setTile (idToTile (tileCatToId list q 1)) q 15
-                                        newChunkMap.[(a + i),(b + l + 1)].setTile (idToTile (tileCatToId list q 2)) q 0
+                                        newChunkMap.[(a + i),(b + l)].setTile (tileCatToId list q 1) q 15
+                                        newChunkMap.[(a + i),(b + l + 1)].setTile (tileCatToId list q 2) q 0
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
                             if ba
@@ -135,8 +139,8 @@ type Game = class
                                             |]
                                         |]
                                     for q in 1 .. 14 do 
-                                        newChunkMap.[(a + i - 1),(b + l)].setTile (idToTile (tileCatToId list 1 q)) 15 q
-                                        newChunkMap.[(a + i),(b + l)].setTile (idToTile (tileCatToId list 2 q)) 0 q
+                                        newChunkMap.[(a + i - 1),(b + l)].setTile (tileCatToId list 1 q) 15 q
+                                        newChunkMap.[(a + i),(b + l)].setTile (tileCatToId list 2 q) 0 q
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
                             if bc
@@ -151,8 +155,8 @@ type Game = class
                                             |]
                                         |]
                                     for q in 1 .. 14 do 
-                                        newChunkMap.[(a + i),(b + l)].setTile (idToTile (tileCatToId list 1 q)) 15 q
-                                        newChunkMap.[(a + i + 1),(b + l)].setTile (idToTile (tileCatToId list 2 q)) 0 q
+                                        newChunkMap.[(a + i),(b + l)].setTile (tileCatToId list 1 q) 15 q
+                                        newChunkMap.[(a + i + 1),(b + l)].setTile (tileCatToId list 2 q) 0 q
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
                             if (aa && ab && ba)
@@ -169,10 +173,10 @@ type Game = class
                                             |]
                                         |]
 
-                                    newChunkMap.[(a + i - 1),(b + l - 1)].setTile (idToTile (tileCatToId list 1 1)) 15 15
-                                    newChunkMap.[(a + i - 1),    (b + l)].setTile (idToTile (tileCatToId list 1 2)) 15 0
-                                    newChunkMap.[(a + i),    (b + l - 1)].setTile (idToTile (tileCatToId list 2 1)) 0 15
-                                    newChunkMap.[(a + i),        (b + l)].setTile (idToTile (tileCatToId list 2 2)) 0 0
+                                    newChunkMap.[(a + i - 1),(b + l - 1)].setTile (tileCatToId list 1 1) 15 15
+                                    newChunkMap.[(a + i - 1),    (b + l)].setTile (tileCatToId list 1 2) 15 0
+                                    newChunkMap.[(a + i),    (b + l - 1)].setTile (tileCatToId list 2 1) 0 15
+                                    newChunkMap.[(a + i),        (b + l)].setTile (tileCatToId list 2 2) 0 0
 
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
@@ -190,10 +194,10 @@ type Game = class
                                             |]
                                         |]
 
-                                    newChunkMap.[(a + i),    (b + l - 1)].setTile (idToTile (tileCatToId list 1 1)) 15 15
-                                    newChunkMap.[(a + i),        (b + l)].setTile (idToTile (tileCatToId list 1 2)) 15 0
-                                    newChunkMap.[(a + i + 1),(b + l - 1)].setTile (idToTile (tileCatToId list 2 1)) 0 15
-                                    newChunkMap.[(a + i + 1),    (b + l)].setTile (idToTile (tileCatToId list 2 2)) 0 0
+                                    newChunkMap.[(a + i),    (b + l - 1)].setTile (tileCatToId list 1 1) 15 15
+                                    newChunkMap.[(a + i),        (b + l)].setTile (tileCatToId list 1 2) 15 0
+                                    newChunkMap.[(a + i + 1),(b + l - 1)].setTile (tileCatToId list 2 1) 0 15
+                                    newChunkMap.[(a + i + 1),    (b + l)].setTile (tileCatToId list 2 2) 0 0
 
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
@@ -212,10 +216,10 @@ type Game = class
                                             |]
                                         |]
 
-                                    newChunkMap.[(a + i - 1),    (b + l)].setTile (idToTile (tileCatToId list 1 1)) 15 15
-                                    newChunkMap.[(a + i - 1),(b + l + 1)].setTile (idToTile (tileCatToId list 1 2)) 15 0
-                                    newChunkMap.[(a + i),        (b + l)].setTile (idToTile (tileCatToId list 2 1)) 0 15
-                                    newChunkMap.[(a + i),    (b + l + 1)].setTile (idToTile (tileCatToId list 2 2)) 0 0
+                                    newChunkMap.[(a + i - 1),    (b + l)].setTile (tileCatToId list 1 1) 15 15
+                                    newChunkMap.[(a + i - 1),(b + l + 1)].setTile (tileCatToId list 1 2) 15 0
+                                    newChunkMap.[(a + i),        (b + l)].setTile (tileCatToId list 2 1) 0 15
+                                    newChunkMap.[(a + i),    (b + l + 1)].setTile (tileCatToId list 2 2) 0 0
 
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
@@ -233,10 +237,10 @@ type Game = class
                                             |]
                                         |]
 
-                                    newChunkMap.[(a + i),        (b + l)].setTile (idToTile (tileCatToId list 1 1)) 15 15
-                                    newChunkMap.[(a + i),    (b + l + 1)].setTile (idToTile (tileCatToId list 1 2)) 15 0
-                                    newChunkMap.[(a + i + 1),    (b + l)].setTile (idToTile (tileCatToId list 2 1)) 0 15
-                                    newChunkMap.[(a + i + 1),(b + l + 1)].setTile (idToTile (tileCatToId list 2 2)) 0 0
+                                    newChunkMap.[(a + i),        (b + l)].setTile (tileCatToId list 1 1) 15 15
+                                    newChunkMap.[(a + i),    (b + l + 1)].setTile (tileCatToId list 1 2) 15 0
+                                    newChunkMap.[(a + i + 1),    (b + l)].setTile (tileCatToId list 2 1) 0 15
+                                    newChunkMap.[(a + i + 1),(b + l + 1)].setTile (tileCatToId list 2 2) 0 0
 
                                     dungeoN.chunkMap <- newChunkMap
                                     this.dungeon.[this.dungeonIndex] <- dungeoN
