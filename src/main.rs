@@ -1,8 +1,14 @@
 mod noise;
+mod defs;
+mod game;
+mod save;
+mod text;
 
 use std::collections::HashMap;
+use std::env;
 use std::io;
-use std::sync::OnceLock;
+use std::path::Path;
+use std::time::SystemTime;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -10,9 +16,12 @@ use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
+use defs::{Faction, RecipeDef, creature_meta, defs, item_meta, tile_meta};
+use game::{Action, Game};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use text::{available_languages, current_lang, set_lang, tr, trf};
 
 const CHUNK_SIZE: usize = 16;
 const CHUNK_AREA: usize = CHUNK_SIZE * CHUNK_SIZE;
@@ -23,8 +32,9 @@ const WALL_THRESHOLD: f64 = 0.80;
 const ESC_HOLD_STEPS: u8 = 8;
 const POTION_HEAL: i32 = 6;
 const MAX_INVENTORY: usize = 10;
+const SAVE_FILE: &str = "savegame.json";
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum Tile {
     Abyss,
     DeepWater,
@@ -37,33 +47,51 @@ enum Tile {
     Wall,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum Item {
     Potion,
+    Herb,
+    Elixir,
     Wood,
     Stone,
+    IronIngot,
+    Hide,
     StringFiber,
     StoneAxe,
+    IronSword,
+    IronPickaxe,
 }
 
 impl Item {
-    fn key(self) -> &'static str {
+    pub(crate) fn key(self) -> &'static str {
         match self {
             Self::Potion => "potion",
+            Self::Herb => "herb",
+            Self::Elixir => "elixir",
             Self::Wood => "wood",
             Self::Stone => "stone",
+            Self::IronIngot => "iron_ingot",
+            Self::Hide => "hide",
             Self::StringFiber => "string",
             Self::StoneAxe => "stone_axe",
+            Self::IronSword => "iron_sword",
+            Self::IronPickaxe => "iron_pickaxe",
         }
     }
 
-    fn from_key(key: &str) -> Option<Self> {
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
         match key {
             "potion" => Some(Self::Potion),
+            "herb" => Some(Self::Herb),
+            "elixir" => Some(Self::Elixir),
             "wood" => Some(Self::Wood),
             "stone" => Some(Self::Stone),
+            "iron_ingot" => Some(Self::IronIngot),
+            "hide" => Some(Self::Hide),
             "string" => Some(Self::StringFiber),
             "stone_axe" => Some(Self::StoneAxe),
+            "iron_sword" => Some(Self::IronSword),
+            "iron_pickaxe" => Some(Self::IronPickaxe),
             _ => None,
         }
     }
@@ -81,7 +109,7 @@ impl Item {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct InventoryItem {
     kind: Item,
     custom_name: Option<String>,
@@ -97,7 +125,7 @@ impl InventoryItem {
 }
 
 impl Tile {
-    fn key(self) -> &'static str {
+    pub(crate) fn key(self) -> &'static str {
         match self {
             Self::Abyss => "abyss",
             Self::DeepWater => "deep_water",
@@ -111,7 +139,7 @@ impl Tile {
         }
     }
 
-    fn from_key(key: &str) -> Option<Self> {
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
         match key {
             "abyss" => Some(Self::Abyss),
             "deep_water" => Some(Self::DeepWater),
@@ -159,200 +187,69 @@ fn shadow_color(tile: Tile) -> Color {
     tile_meta(tile).shadow_color
 }
 
-#[derive(Deserialize)]
-struct GameDataFile {
-    tiles: Vec<TileDefRaw>,
-    items: Vec<ItemDefRaw>,
-    recipes: Vec<RecipeDefRaw>,
-}
-
-#[derive(Deserialize)]
-struct TileDefRaw {
-    id: String,
-    glyph: String,
-    color: u8,
-    shadow_color: Option<u8>,
-    walkable: bool,
-    legend: String,
-    harvest_hits: Option<u8>,
-    harvest_drop: Option<String>,
-    harvest_drop_chance: Option<u8>,
-    harvest_replace: Option<String>,
-    harvest_label: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct ItemDefRaw {
-    id: String,
-    name: String,
-    glyph: String,
-    color: u8,
-    legend: String,
-}
-
-#[derive(Deserialize)]
-struct RecipeDefRaw {
-    result: String,
-    label: Option<String>,
-    inputs: Vec<String>,
-}
-
-#[derive(Clone)]
-struct TileDef {
-    glyph: char,
-    color: Color,
-    shadow_color: Color,
-    walkable: bool,
-    legend: String,
-    harvest_hits: Option<u8>,
-    harvest_drop: Option<Item>,
-    harvest_drop_chance: u8,
-    harvest_replace: Option<Tile>,
-    harvest_label: Option<String>,
-}
-
-#[derive(Clone)]
-struct ItemDef {
-    name: String,
-    glyph: char,
-    color: Color,
-    legend: String,
-}
-
-#[derive(Clone)]
-struct RecipeDef {
-    result: Item,
-    label: String,
-    inputs: [Option<Item>; 9],
-}
-
-struct GameDefs {
-    tiles: HashMap<String, TileDef>,
-    items: HashMap<String, ItemDef>,
-    recipes: Vec<RecipeDef>,
-}
-
-fn defs() -> &'static GameDefs {
-    static DEFS: OnceLock<GameDefs> = OnceLock::new();
-    DEFS.get_or_init(|| load_defs())
-}
-
-fn parse_single_char(s: &str, kind: &str, id: &str) -> char {
-    let mut it = s.chars();
-    let c = it
-        .next()
-        .unwrap_or_else(|| panic!("{kind} '{id}' has empty glyph"));
-    assert!(
-        it.next().is_none(),
-        "{kind} '{id}' glyph must be exactly 1 char"
-    );
-    c
-}
-
-fn load_defs() -> GameDefs {
-    let raw = include_str!("../data/game_data.toml");
-    let parsed: GameDataFile =
-        toml::from_str(raw).expect("failed to parse data/game_data.toml");
-
-    let mut items = HashMap::new();
-    for it in parsed.items {
-        let item = Item::from_key(&it.id)
-            .unwrap_or_else(|| panic!("unknown item id in data file: {}", it.id));
-        let _ = item;
-        items.insert(
-            it.id.clone(),
-            ItemDef {
-                name: it.name,
-                glyph: parse_single_char(&it.glyph, "item", &it.id),
-                color: Color::Indexed(it.color),
-                legend: it.legend,
-            },
-        );
+fn biome_tint_color(base: Color, biome: u8, bright: bool) -> Color {
+    let bx = biome % 4;
+    let by = biome / 4;
+    if !bright {
+        return match (bx, by) {
+            (0, 0) | (1, 0) | (0, 1) => Color::Indexed(18),
+            (2, 1) | (1, 2) | (2, 2) => Color::Indexed(22),
+            (3, 2) | (2, 3) | (3, 3) => Color::Indexed(240),
+            _ => Color::Indexed(94),
+        };
     }
 
-    let mut tiles = HashMap::new();
-    for t in parsed.tiles {
-        let tile = Tile::from_key(&t.id)
-            .unwrap_or_else(|| panic!("unknown tile id in data file: {}", t.id));
-        let _ = tile;
-        let harvest_drop = t
-            .harvest_drop
-            .as_deref()
-            .map(|k| Item::from_key(k).unwrap_or_else(|| panic!("unknown harvest_drop item: {k}")));
-        let harvest_replace = t.harvest_replace.as_deref().map(|k| {
-            Tile::from_key(k).unwrap_or_else(|| panic!("unknown harvest_replace tile: {k}"))
-        });
-        tiles.insert(
-            t.id.clone(),
-            TileDef {
-                glyph: parse_single_char(&t.glyph, "tile", &t.id),
-                color: Color::Indexed(t.color),
-                shadow_color: Color::Indexed(t.shadow_color.unwrap_or(t.color)),
-                walkable: t.walkable,
-                legend: t.legend,
-                harvest_hits: t.harvest_hits,
-                harvest_drop,
-                harvest_drop_chance: t.harvest_drop_chance.unwrap_or(100),
-                harvest_replace,
-                harvest_label: t.harvest_label,
-            },
-        );
-    }
-
-    let mut recipes = Vec::new();
-    for r in parsed.recipes {
-        assert!(r.inputs.len() == 9, "recipe '{}' must have 9 inputs", r.result);
-        let mut inputs: [Option<Item>; 9] = [None; 9];
-        for (i, k) in r.inputs.iter().enumerate() {
-            let trimmed = k.trim();
-            if trimmed.is_empty() {
-                inputs[i] = None;
-            } else {
-                inputs[i] = Some(
-                    Item::from_key(trimmed)
-                        .unwrap_or_else(|| panic!("unknown recipe input item: {}", trimmed)),
-                );
-            }
-        }
-        let result = Item::from_key(&r.result)
-            .unwrap_or_else(|| panic!("unknown recipe result item: {}", r.result));
-        recipes.push(RecipeDef {
-            result,
-            label: r.label.unwrap_or_else(|| r.result.clone()),
-            inputs,
-        });
-    }
-
-    GameDefs {
-        tiles,
-        items,
-        recipes,
+    match (bx, by) {
+        // wet / lowland
+        (0, 0) | (1, 0) | (0, 1) => match base {
+            Color::Indexed(70) => Color::Indexed(78),
+            Color::Indexed(28) => Color::Indexed(30),
+            _ => base,
+        },
+        // lush
+        (2, 1) | (1, 2) | (2, 2) => match base {
+            Color::Indexed(70) => Color::Indexed(82),
+            Color::Indexed(28) => Color::Indexed(34),
+            _ => base,
+        },
+        // rocky / high
+        (3, 2) | (2, 3) | (3, 3) => match base {
+            Color::Indexed(70) => Color::Indexed(143),
+            Color::Indexed(28) => Color::Indexed(101),
+            Color::Indexed(245) => Color::Indexed(252),
+            _ => base,
+        },
+        _ => base,
     }
 }
 
-fn tile_meta(tile: Tile) -> &'static TileDef {
-    let key = tile.key();
-    defs()
-        .tiles
-        .get(key)
-        .unwrap_or_else(|| panic!("tile '{}' missing in data file", key))
+fn biome_tile_glyph(tile: Tile, biome: u8) -> char {
+    let bx = biome % 4;
+    let by = biome / 4;
+    match tile {
+        Tile::Grass => match (bx, by) {
+            (0, 0) | (1, 0) => ',',
+            (3, 2) | (2, 3) | (3, 3) => ';',
+            _ => '"',
+        },
+        Tile::Forest => match (bx, by) {
+            (0, 0) | (1, 0) => 'Y',
+            (3, 2) | (2, 3) | (3, 3) => 'A',
+            _ => 'T',
+        },
+        Tile::Sand => match (bx, by) {
+            (0, 0) | (1, 0) => ':',
+            _ => '.',
+        },
+        Tile::Rock => match (bx, by) {
+            (3, 2) | (2, 3) | (3, 3) => 'O',
+            _ => 'o',
+        },
+        _ => tile.glyph(),
+    }
 }
 
-fn item_meta(item: Item) -> &'static ItemDef {
-    let key = item.key();
-    defs()
-        .items
-        .get(key)
-        .unwrap_or_else(|| panic!("item '{}' missing in data file", key))
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Pos {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum Facing {
     N,
     NE,
@@ -394,14 +291,14 @@ impl Facing {
 
     fn label(self) -> &'static str {
         match self {
-            Self::N => "N",
-            Self::NE => "NE",
-            Self::E => "E",
-            Self::SE => "SE",
-            Self::S => "S",
-            Self::SW => "SW",
-            Self::W => "W",
-            Self::NW => "NW",
+            Self::N => tr("dir.n"),
+            Self::NE => tr("dir.ne"),
+            Self::E => tr("dir.e"),
+            Self::SE => tr("dir.se"),
+            Self::S => tr("dir.s"),
+            Self::SW => tr("dir.sw"),
+            Self::W => tr("dir.w"),
+            Self::NW => tr("dir.nw"),
         }
     }
 
@@ -433,27 +330,6 @@ fn is_bright_by_facing(facing: Facing, dx: i32, dy: i32) -> bool {
     cos >= 0.35
 }
 
-#[derive(Clone, Copy, Debug)]
-struct Enemy {
-    pos: Pos,
-    hp: i32,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action {
-    Move(i32, i32),
-    Face(i32, i32),
-    Attack,
-    Wait,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MoveResult {
-    Moved,
-    Blocked,
-    RotatedOnly,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ItemMenuAction {
     Rename,
@@ -465,10 +341,10 @@ enum ItemMenuAction {
 impl ItemMenuAction {
     fn label(self) -> &'static str {
         match self {
-            Self::Rename => "Rename",
-            Self::Drop => "Drop",
-            Self::Throw => "Throw",
-            Self::Use => "Use",
+            Self::Rename => tr("item_menu.rename"),
+            Self::Drop => tr("item_menu.drop"),
+            Self::Throw => tr("item_menu.throw"),
+            Self::Use => tr("item_menu.use"),
         }
     }
 }
@@ -483,9 +359,12 @@ const ITEM_MENU_ACTIONS: [ItemMenuAction; 4] = [
 #[derive(Clone, Debug)]
 enum UiMode {
     Normal,
+    MainMenu { selected: usize },
     Inventory { selected: usize },
     ItemMenu { selected: usize, action_idx: usize },
     RenameItem { selected: usize, input: String },
+    Settings { selected: usize },
+    Hints,
     Crafting {
         cursor: usize,
         selected_inv: usize,
@@ -500,674 +379,34 @@ enum CraftFocus {
     Inventory,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct HarvestState {
-    target: (i32, i32),
-    hits: u8,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MainMenuEntry {
+    Items,
+    Crafting,
+    Settings,
+    Hints,
+    Exit,
 }
 
-#[derive(Clone)]
-struct Chunk {
-    tiles: [Tile; CHUNK_AREA],
-}
-
-impl Chunk {
-    fn new(fill: Tile) -> Self {
-        Self {
-            tiles: [fill; CHUNK_AREA],
+impl MainMenuEntry {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Items => tr("main_menu.items"),
+            Self::Crafting => tr("main_menu.crafting"),
+            Self::Settings => tr("main_menu.settings"),
+            Self::Hints => tr("main_menu.hints"),
+            Self::Exit => tr("main_menu.exit"),
         }
-    }
-
-    fn idx(local_x: usize, local_y: usize) -> usize {
-        local_y * CHUNK_SIZE + local_x
-    }
-
-    fn get(&self, local_x: usize, local_y: usize) -> Tile {
-        self.tiles[Self::idx(local_x, local_y)]
-    }
-
-    fn set(&mut self, local_x: usize, local_y: usize, tile: Tile) {
-        let idx = Self::idx(local_x, local_y);
-        self.tiles[idx] = tile;
     }
 }
 
-struct World {
-    seed: u64,
-    chunks: HashMap<(i32, i32), Chunk>,
-}
-
-impl World {
-    fn new(seed: u64) -> Self {
-        Self {
-            seed,
-            chunks: HashMap::new(),
-        }
-    }
-
-    fn chunk_coord(v: i32) -> i32 {
-        v.div_euclid(CHUNK_SIZE as i32)
-    }
-
-    fn local_coord(v: i32) -> usize {
-        v.rem_euclid(CHUNK_SIZE as i32) as usize
-    }
-
-    fn tile(&mut self, x: i32, y: i32) -> Tile {
-        let chunk_x = Self::chunk_coord(x);
-        let chunk_y = Self::chunk_coord(y);
-        let local_x = Self::local_coord(x);
-        let local_y = Self::local_coord(y);
-        let chunk = self.ensure_chunk(chunk_x, chunk_y);
-        chunk.get(local_x, local_y)
-    }
-
-    fn set_tile(&mut self, x: i32, y: i32, tile: Tile) {
-        let chunk_x = Self::chunk_coord(x);
-        let chunk_y = Self::chunk_coord(y);
-        let local_x = Self::local_coord(x);
-        let local_y = Self::local_coord(y);
-        let chunk = self.ensure_chunk(chunk_x, chunk_y);
-        chunk.set(local_x, local_y, tile);
-    }
-
-    fn ensure_chunk(&mut self, chunk_x: i32, chunk_y: i32) -> &mut Chunk {
-        self.chunks
-            .entry((chunk_x, chunk_y))
-            .or_insert_with(|| Self::generate_chunk(self.seed, chunk_x, chunk_y))
-    }
-
-    fn generate_chunk(seed: u64, chunk_x: i32, chunk_y: i32) -> Chunk {
-        let mut chunk = Chunk::new(Tile::DeepWater);
-        let terrain_noise = noise::Perlin2D::new(seed);
-        let scale = 0.05;
-        let octaves = 4;
-        let persistence = 0.5;
-        let lacunarity = 2.0;
-
-        let base_x = chunk_x * CHUNK_SIZE as i32;
-        let base_y = chunk_y * CHUNK_SIZE as i32;
-
-        for local_y in 0..CHUNK_SIZE {
-            for local_x in 0..CHUNK_SIZE {
-                let world_x = base_x + local_x as i32;
-                let world_y = base_y + local_y as i32;
-                let h = fbm_noise01(
-                    &terrain_noise,
-                    world_x as f64 * scale,
-                    world_y as f64 * scale,
-                    octaves,
-                    persistence,
-                    lacunarity,
-                );
-                let tile = if h <= ABYSS_THRESHOLD {
-                    Tile::Abyss
-                } else if h >= WALL_THRESHOLD {
-                    Tile::Wall
-                } else if h >= ROCK_THRESHOLD {
-                    Tile::Rock
-                } else {
-                    Tile::from_height(h)
-                };
-
-                chunk.set(local_x, local_y, tile);
-            }
-        }
-
-        chunk
-    }
-}
-
-struct Game {
-    world: World,
-    player: Pos,
-    facing: Facing,
-    player_hp: i32,
-    player_max_hp: i32,
-    inventory: Vec<InventoryItem>,
-    equipped_tool: Option<InventoryItem>,
-    enemies: Vec<Enemy>,
-    ground_items: HashMap<(i32, i32), Item>,
-    harvest_state: Option<HarvestState>,
-    rng_state: u64,
-    turn: u64,
-    logs: Vec<String>,
-}
-
-impl Game {
-    fn new(seed: u64) -> Self {
-        let mut game = Self {
-            world: World::new(seed),
-            player: Pos { x: 0, y: 0 },
-            facing: Facing::S,
-            player_hp: 20,
-            player_max_hp: 20,
-            inventory: Vec::new(),
-            equipped_tool: None,
-            enemies: Vec::new(),
-            ground_items: HashMap::new(),
-            harvest_state: None,
-            rng_state: seed ^ 0xA5A5_5A5A_DEAD_BEEF,
-            turn: 0,
-            logs: vec![String::from("Use WASD to move, F to attack")],
-        };
-        game.player = game.find_spawn();
-        game.spawn_enemies(12);
-        game.spawn_items(10);
-        game
-    }
-
-    fn tile(&mut self, x: i32, y: i32) -> Tile {
-        self.world.tile(x, y)
-    }
-
-    fn set_tile(&mut self, x: i32, y: i32, tile: Tile) {
-        self.world.set_tile(x, y, tile);
-    }
-
-    fn find_spawn(&mut self) -> Pos {
-        if self.tile(0, 0).walkable() {
-            return Pos { x: 0, y: 0 };
-        }
-
-        for radius in 1..=128_i32 {
-            for y in -radius..=radius {
-                for x in -radius..=radius {
-                    if self.tile(x, y).walkable() {
-                        return Pos { x, y };
-                    }
-                }
-            }
-        }
-
-        Pos { x: 0, y: 0 }
-    }
-
-    fn try_move(&mut self, dx: i32, dy: i32) -> MoveResult {
-        let old_facing = self.facing;
-        if let Some(facing) = Facing::from_delta(dx, dy) {
-            self.facing = facing;
-        }
-        let nx = self.player.x + dx;
-        let ny = self.player.y + dy;
-        if self.has_enemy_at(nx, ny) {
-            if self.facing != old_facing {
-                self.push_log(format!("Facing {}", self.facing.label()));
-                return MoveResult::RotatedOnly;
-            }
-            self.push_log("An enemy blocks the way");
-            return MoveResult::Blocked;
-        }
-        if self.tile(nx, ny).walkable() {
-            self.player = Pos { x: nx, y: ny };
-            self.push_log(format!("Moved to ({nx}, {ny})"));
-            self.pick_up_item_at_player();
-            MoveResult::Moved
-        } else {
-            if self.facing != old_facing {
-                self.push_log(format!("Facing {}", self.facing.label()));
-                return MoveResult::RotatedOnly;
-            }
-            self.push_log("Blocked");
-            MoveResult::Blocked
-        }
-    }
-
-    fn apply_action(&mut self, action: Action) {
-        let mut consume_turn = true;
-        let mut keep_harvest_chain = false;
-        match action {
-            Action::Move(dx, dy) => {
-                let result = self.try_move(dx, dy);
-                if result == MoveResult::RotatedOnly {
-                    consume_turn = false;
-                }
-            }
-            Action::Face(dx, dy) => {
-                if let Some(facing) = Facing::from_delta(dx, dy) {
-                    if facing != self.facing {
-                        self.facing = facing;
-                        self.push_log(format!("Facing {}", self.facing.label()));
-                    }
-                }
-                consume_turn = false;
-            }
-            Action::Attack => {
-                keep_harvest_chain = self.player_attack();
-            }
-            Action::Wait => {
-                self.push_log("Waited");
-            }
-        }
-        if consume_turn {
-            if !keep_harvest_chain {
-                self.harvest_state = None;
-            }
-            self.consume_turn();
-        }
-    }
-
-    fn push_log<S: Into<String>>(&mut self, msg: S) {
-        self.logs.push(msg.into());
-        if self.logs.len() > 300 {
-            self.logs.drain(0..100);
-        }
-    }
-
-    fn player_attack(&mut self) -> bool {
-        let (dx, dy) = self.facing.delta();
-        let tx = self.player.x + dx;
-        let ty = self.player.y + dy;
-        let target_idx = self
-            .enemies
-            .iter()
-            .position(|e| e.pos.x == tx && e.pos.y == ty);
-
-        match target_idx {
-            Some(i) => {
-                self.enemies[i].hp -= 1;
-                if self.enemies[i].hp <= 0 {
-                    let dead = self.enemies.remove(i);
-                    self.push_log(format!("You defeated an enemy at ({}, {})", dead.pos.x, dead.pos.y));
-                    if self.rand_u32() % 100 < 35 {
-                        self.ground_items.insert((dead.pos.x, dead.pos.y), Item::Potion);
-                        self.push_log("Enemy dropped a potion");
-                    }
-                } else {
-                    self.push_log("You hit an enemy");
-                }
-                false
-            }
-            None => {
-                let target_tile = self.tile(tx, ty);
-                if let Some((durability, drop_item, drop_chance, replace_to, label)) =
-                    destructible_info(target_tile)
-                {
-                    let mut hits = 1_u8;
-                    if let Some(state) = self.harvest_state {
-                        if state.target == (tx, ty) {
-                            hits = state.hits.saturating_add(1);
-                        }
-                    }
-                    if hits >= durability {
-                        self.set_tile(tx, ty, replace_to);
-                        self.harvest_state = None;
-                        if let Some(item) = drop_item {
-                            if self.item_at(tx, ty).is_none()
-                                && self.rand_u32() % 100 < drop_chance as u32
-                            {
-                                self.ground_items.insert((tx, ty), item);
-                                self.push_log(format!("{} broke and became {}", label, item.name()));
-                            } else {
-                                self.push_log(format!("{} broke", label));
-                            }
-                        } else {
-                            self.push_log(format!("{} broke", label));
-                        }
-                    } else {
-                        self.harvest_state = Some(HarvestState {
-                            target: (tx, ty),
-                            hits,
-                        });
-                        self.push_log(format!("Damaged {} ({}/{})", label, hits, durability));
-                    }
-                    true
-                } else {
-                    self.push_log("No enemy or harvestable target in front");
-                    false
-                }
-            }
-        }
-    }
-
-    fn has_enemy_at(&self, x: i32, y: i32) -> bool {
-        self.enemies.iter().any(|e| e.pos.x == x && e.pos.y == y)
-    }
-
-    fn item_at(&self, x: i32, y: i32) -> Option<Item> {
-        self.ground_items.get(&(x, y)).copied()
-    }
-
-    fn inventory_len(&self) -> usize {
-        self.inventory.len()
-    }
-
-    fn inventory_item_name(&self, idx: usize) -> Option<String> {
-        self.inventory.get(idx).map(InventoryItem::display_name)
-    }
-
-    fn add_item_to_inventory(&mut self, item: InventoryItem) -> bool {
-        if self.inventory_full() {
-            return false;
-        }
-        self.inventory.push(item);
-        true
-    }
-
-    fn add_item_kind_to_inventory(&mut self, kind: Item) -> bool {
-        self.add_item_to_inventory(InventoryItem {
-            kind,
-            custom_name: None,
-        })
-    }
-
-    fn place_ground_item_near_player(&mut self, kind: Item) -> bool {
-        let offsets = [
-            (0, 0),
-            (1, 0),
-            (-1, 0),
-            (0, 1),
-            (0, -1),
-            (1, 1),
-            (1, -1),
-            (-1, 1),
-            (-1, -1),
-        ];
-        for (dx, dy) in offsets {
-            let x = self.player.x + dx;
-            let y = self.player.y + dy;
-            if self.item_at(x, y).is_none() {
-                self.ground_items.insert((x, y), kind);
-                return true;
-            }
-        }
-        false
-    }
-
-    fn stash_or_drop_item(&mut self, item: InventoryItem) {
-        if self.add_item_to_inventory(item.clone()) {
-            return;
-        }
-        if self.place_ground_item_near_player(item.kind) {
-            self.push_log(format!("Dropped {} to ground (inventory full)", item.display_name()));
-        } else {
-            self.push_log(format!("Lost {} (no space)", item.display_name()));
-        }
-    }
-
-    fn inventory_full(&self) -> bool {
-        self.inventory.len() >= MAX_INVENTORY
-    }
-
-    fn pick_up_item_at_player(&mut self) {
-        let key = (self.player.x, self.player.y);
-        let picked = self.ground_items.get(&key).copied();
-        if let Some(item) = picked {
-            if self.inventory_full() {
-                self.push_log("Inventory full (max 10)");
-                return;
-            }
-            self.ground_items.remove(&key);
-            let _ = self.add_item_kind_to_inventory(item);
-            self.push_log(format!(
-                "Picked up {} ({}/{})",
-                item.name(),
-                self.inventory.len(),
-                MAX_INVENTORY
-            ));
-        }
-    }
-
-    fn use_inventory_item(&mut self, idx: usize) -> bool {
-        if idx >= self.inventory.len() {
-            self.push_log("No usable item");
-            return false;
-        }
-        let kind = self.inventory[idx].kind;
-        match kind {
-            Item::Potion => {
-                let item = self.inventory.remove(idx);
-                let before = self.player_hp;
-                self.player_hp = (self.player_hp + POTION_HEAL).min(self.player_max_hp);
-                let healed = self.player_hp - before;
-                if healed > 0 {
-                    self.push_log(format!(
-                        "Used {}: +{} HP ({}/{})",
-                        item.display_name(),
-                        healed,
-                        self.player_hp,
-                        self.player_max_hp
-                    ));
-                } else {
-                    self.push_log(format!("Used {}, but HP is already full", item.display_name()));
-                }
-                true
-            }
-            Item::Wood => {
-                self.push_log("This item cannot be used directly");
-                false
-            }
-            Item::Stone => {
-                self.push_log("This item cannot be used directly");
-                false
-            }
-            Item::StringFiber => {
-                self.push_log("This item cannot be used directly");
-                false
-            }
-            Item::StoneAxe => {
-                let item = self.inventory.remove(idx);
-                let old = self.equipped_tool.replace(item);
-                if let Some(prev) = old {
-                    self.stash_or_drop_item(prev);
-                    self.push_log("Equipped Stone Axe (swapped previous tool)");
-                } else {
-                    self.push_log("Equipped Stone Axe");
-                }
-                true
-            }
-        }
-    }
-
-    fn drop_inventory_item(&mut self, idx: usize) -> bool {
-        if idx >= self.inventory.len() {
-            return false;
-        }
-        let key = (self.player.x, self.player.y);
-        if self.ground_items.contains_key(&key) {
-            self.push_log("Cannot drop here: tile already has an item");
-            return false;
-        }
-        let item = self.inventory.remove(idx);
-        self.ground_items.insert(key, item.kind);
-        self.push_log(format!("Dropped {}", item.display_name()));
-        true
-    }
-
-    fn throw_inventory_item(&mut self, idx: usize) -> bool {
-        if idx >= self.inventory.len() {
-            return false;
-        }
-        let item = self.inventory.remove(idx);
-        let (fx, fy) = self.facing.delta();
-        let mut tx = self.player.x;
-        let mut ty = self.player.y;
-        for _ in 0..3 {
-            let nx = tx + fx;
-            let ny = ty + fy;
-            if !self.tile(nx, ny).walkable() || self.has_enemy_at(nx, ny) {
-                break;
-            }
-            tx = nx;
-            ty = ny;
-        }
-        if (tx, ty) == (self.player.x, self.player.y) {
-            self.push_log(format!("Threw {} but it fell at your feet", item.display_name()));
-        } else {
-            self.push_log(format!("Threw {} to ({}, {})", item.display_name(), tx, ty));
-        }
-        self.ground_items.insert((tx, ty), item.kind);
-        true
-    }
-
-    fn rename_inventory_item(&mut self, idx: usize, new_name: String) -> bool {
-        if idx >= self.inventory.len() {
-            return false;
-        }
-        let trimmed = new_name.trim().to_string();
-        if trimmed.is_empty() {
-            self.inventory[idx].custom_name = None;
-            self.push_log("Item name reset");
-        } else {
-            self.inventory[idx].custom_name = Some(trimmed.clone());
-            self.push_log(format!("Renamed item to \"{}\"", trimmed));
-        }
-        true
-    }
-
-    fn consume_turn(&mut self) {
-        self.tick_enemies();
-        self.turn = self.turn.saturating_add(1);
-    }
-
-    fn consume_non_attack_turn(&mut self) {
-        self.harvest_state = None;
-        self.consume_turn();
-    }
-
-    fn is_enemy_passable(&mut self, x: i32, y: i32, occupied: &HashMap<(i32, i32), usize>) -> bool {
-        if x == self.player.x && y == self.player.y {
-            return false;
-        }
-        self.tile(x, y).walkable() && !occupied.contains_key(&(x, y))
-    }
-
-    fn spawn_enemies(&mut self, count: usize) {
-        let mut spawned = 0usize;
-        let mut attempts = 0usize;
-        while spawned < count && attempts < count * 800 {
-            attempts += 1;
-            let dx = self.rand_range_i32(-24, 24);
-            let dy = self.rand_range_i32(-24, 24);
-            let x = self.player.x + dx;
-            let y = self.player.y + dy;
-            let dist2 = dx * dx + dy * dy;
-            if dist2 < 25 || dist2 > 24 * 24 {
-                continue;
-            }
-            if !self.tile(x, y).walkable() || self.has_enemy_at(x, y) {
-                continue;
-            }
-            self.enemies.push(Enemy {
-                pos: Pos { x, y },
-                hp: 2,
-            });
-            spawned += 1;
-        }
-    }
-
-    fn spawn_items(&mut self, count: usize) {
-        let mut spawned = 0usize;
-        let mut attempts = 0usize;
-        while spawned < count && attempts < count * 1000 {
-            attempts += 1;
-            let dx = self.rand_range_i32(-28, 28);
-            let dy = self.rand_range_i32(-28, 28);
-            let x = self.player.x + dx;
-            let y = self.player.y + dy;
-            let dist2 = dx * dx + dy * dy;
-            if dist2 < 9 || dist2 > 28 * 28 {
-                continue;
-            }
-            if !self.tile(x, y).walkable() || self.has_enemy_at(x, y) || self.item_at(x, y).is_some() {
-                continue;
-            }
-            self.ground_items.insert((x, y), Item::Potion);
-            spawned += 1;
-        }
-    }
-
-    fn rand_u32(&mut self) -> u32 {
-        self.rng_state = self
-            .rng_state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1);
-        (self.rng_state >> 32) as u32
-    }
-
-    fn rand_range_i32(&mut self, min_incl: i32, max_incl: i32) -> i32 {
-        let span = (max_incl - min_incl + 1) as u32;
-        min_incl + (self.rand_u32() % span) as i32
-    }
-
-    fn tick_enemies(&mut self) {
-        if self.enemies.is_empty() {
-            return;
-        }
-
-        let mut occupied: HashMap<(i32, i32), usize> = self
-            .enemies
-            .iter()
-            .enumerate()
-            .map(|(i, e)| ((e.pos.x, e.pos.y), i))
-            .collect();
-        let mut attack_count = 0_u32;
-
-        for i in 0..self.enemies.len() {
-            let current = self.enemies[i].pos;
-            occupied.remove(&(current.x, current.y));
-
-            let dx = self.player.x - current.x;
-            let dy = self.player.y - current.y;
-            let dist2 = dx * dx + dy * dy;
-            let chebyshev = dx.abs().max(dy.abs());
-            if chebyshev == 1 {
-                self.player_hp -= 1;
-                attack_count += 1;
-                occupied.insert((current.x, current.y), i);
-                continue;
-            }
-
-            let candidates = if dist2 <= 64 {
-                let sx = dx.signum();
-                let sy = dy.signum();
-                let x_first = self.rand_u32().is_multiple_of(2);
-                if x_first {
-                    [(sx, 0), (0, sy), (sx, sy), (0, 0), (-sx, 0)]
-                } else {
-                    [(0, sy), (sx, 0), (sx, sy), (0, 0), (0, -sy)]
-                }
-            } else {
-                let r = (self.rand_u32() % 9) as i32;
-                match r {
-                    0 => [(1, 0), (1, 1), (0, 1), (1, -1), (0, 0)],
-                    1 => [(0, 1), (-1, 1), (-1, 0), (1, 1), (0, 0)],
-                    2 => [(-1, 0), (-1, -1), (0, -1), (-1, 1), (0, 0)],
-                    3 => [(0, -1), (1, -1), (1, 0), (-1, -1), (0, 0)],
-                    4 => [(1, 1), (1, 0), (0, 1), (-1, -1), (0, 0)],
-                    5 => [(-1, 1), (-1, 0), (0, 1), (1, -1), (0, 0)],
-                    6 => [(-1, -1), (-1, 0), (0, -1), (1, 1), (0, 0)],
-                    7 => [(1, -1), (1, 0), (0, -1), (-1, 1), (0, 0)],
-                    _ => [(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)],
-                }
-            };
-
-            let mut next = current;
-            for (mx, my) in candidates {
-                let nx = current.x + mx;
-                let ny = current.y + my;
-                if self.is_enemy_passable(nx, ny, &occupied) {
-                    next = Pos { x: nx, y: ny };
-                    break;
-                }
-            }
-
-            self.enemies[i].pos = next;
-            occupied.insert((next.x, next.y), i);
-        }
-
-        if attack_count > 0 {
-            if self.player_hp <= 0 {
-                self.push_log("You were slain");
-            } else {
-                self.push_log(format!(
-                    "{attack_count} enemy attack(s) hit you. HP {}/{}",
-                    self.player_hp, self.player_max_hp
-                ));
-            }
-        }
-    }
-}
+const MAIN_MENU_ENTRIES: [MainMenuEntry; 5] = [
+    MainMenuEntry::Items,
+    MainMenuEntry::Crafting,
+    MainMenuEntry::Settings,
+    MainMenuEntry::Hints,
+    MainMenuEntry::Exit,
+];
 
 struct TerminalGuard;
 
@@ -1196,35 +435,54 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
     ])
     .split(areas[1]);
 
-    let map_block = Block::default().borders(Borders::ALL).title("Map");
+    let map_block = Block::default().borders(Borders::ALL).title(tr("title.map"));
     let map_inner = map_block.inner(areas[0]);
     let map_lines = build_map_lines(game, map_inner.width, map_inner.height);
     let map_widget = Paragraph::new(map_lines).block(map_block);
     frame.render_widget(map_widget, areas[0]);
 
     let status_widget = Paragraph::new(build_status_lines(game, esc_hold_count))
-        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .block(Block::default().borders(Borders::ALL).title(tr("title.status")))
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(status_widget, side_areas[0]);
 
     let legend_widget = Paragraph::new(build_legend_lines())
-        .block(Block::default().borders(Borders::ALL).title("Legend"))
+        .block(Block::default().borders(Borders::ALL).title(tr("title.legend")))
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(legend_widget, side_areas[1]);
 
     let log_height = side_areas[2].height.saturating_sub(2) as usize;
     let log_widget = Paragraph::new(build_log_lines(game, log_height))
-        .block(Block::default().borders(Borders::ALL).title("Log"))
+        .block(Block::default().borders(Borders::ALL).title(tr("title.log")))
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(log_widget, side_areas[2]);
 
     match ui_mode {
         UiMode::Normal => {}
-        UiMode::Inventory { selected } => {
-            let area = centered_rect(60, 65, frame.area());
+        UiMode::MainMenu { selected } => {
+            let area = centered_rect(40, 45, frame.area());
             frame.render_widget(Clear, area);
-            let widget = Paragraph::new(build_inventory_lines(game, *selected))
-                .block(Block::default().borders(Borders::ALL).title("Inventory"))
+            let widget = Paragraph::new(build_main_menu_lines(*selected))
+                .block(Block::default().borders(Borders::ALL).title(tr("title.menu")))
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(widget, area);
+        }
+        UiMode::Inventory { selected } => {
+            render_inventory_modal(frame, game, *selected);
+        }
+        UiMode::Settings { selected } => {
+            let area = centered_rect(50, 40, frame.area());
+            frame.render_widget(Clear, area);
+            let widget = Paragraph::new(build_settings_lines(*selected))
+                .block(Block::default().borders(Borders::ALL).title(tr("title.settings")))
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(widget, area);
+        }
+        UiMode::Hints => {
+            let area = centered_rect(55, 55, frame.area());
+            frame.render_widget(Clear, area);
+            let widget = Paragraph::new(build_hints_lines())
+                .block(Block::default().borders(Borders::ALL).title(tr("title.hints")))
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -1235,7 +493,7 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(40, 40, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_item_menu_lines(game, *selected, *action_idx))
-                .block(Block::default().borders(Borders::ALL).title("Item Menu"))
+                .block(Block::default().borders(Borders::ALL).title(tr("title.item_menu")))
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -1243,7 +501,7 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(55, 30, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_rename_lines(game, *selected, input))
-                .block(Block::default().borders(Borders::ALL).title("Rename Item"))
+                .block(Block::default().borders(Borders::ALL).title(tr("title.rename_item")))
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -1275,52 +533,92 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
 }
 
 fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static>> {
-    let mut lines = Vec::with_capacity(height as usize);
-    let center_x = (width / 2) as i32;
-    let center_y = (height / 2) as i32;
+    let cells_w = (width.saturating_add(1)) / 2;
+    let cells_h = (height.saturating_add(1)) / 2;
+    let render_w = cells_w.saturating_mul(2).saturating_sub(1);
+    let render_h = cells_h.saturating_mul(2).saturating_sub(1);
+    let mut lines = Vec::with_capacity(render_h as usize);
+    let center_x = (cells_w / 2) as i32;
+    let center_y = (cells_h / 2) as i32;
 
-    for sy in 0..height {
-        let mut spans: Vec<Span<'static>> = Vec::with_capacity(width as usize);
-        for sx in 0..width {
+    let mut effect_gaps: HashMap<(u16, u16), char> = HashMap::new();
+    for fx in &game.attack_effects {
+        let from_dx = fx.from.x - game.player.x;
+        let from_dy = fx.from.y - game.player.y;
+        let to_dx = fx.to.x - game.player.x;
+        let to_dy = fx.to.y - game.player.y;
+        let mid_dx = from_dx + to_dx;
+        let mid_dy = from_dy + to_dy;
+        let gap_x = 2 * center_x + mid_dx;
+        let gap_y = 2 * center_y + mid_dy;
+        if gap_x < 0 || gap_y < 0 {
+            continue;
+        }
+        let gx = gap_x as u16;
+        let gy = gap_y as u16;
+        if gx >= render_w || gy >= render_h {
+            continue;
+        }
+        let dir_x = (fx.to.x - fx.from.x).signum();
+        let dir_y = (fx.to.y - fx.from.y).signum();
+        let glyph = match (dir_x, dir_y) {
+            (1, 0) | (-1, 0) => '-',
+            (0, 1) | (0, -1) => '|',
+            (1, 1) | (-1, -1) => '\\',
+            (1, -1) | (-1, 1) => '/',
+            _ => '*',
+        };
+        effect_gaps.insert((gx, gy), glyph);
+    }
+
+    for ry in 0..render_h {
+        let mut spans: Vec<Span<'static>> = Vec::with_capacity(render_w as usize);
+        for rx in 0..render_w {
+            let is_cell = (rx % 2 == 0) && (ry % 2 == 0);
+            if !is_cell {
+                if let Some(gch) = effect_gaps.get(&(rx, ry)) {
+                    spans.push(Span::styled(
+                        gch.to_string(),
+                        Style::default().fg(Color::Yellow).bold(),
+                    ));
+                } else {
+                    spans.push(Span::raw(" "));
+                }
+                continue;
+            }
+
+            let sx = rx / 2;
+            let sy = ry / 2;
             let dx = sx as i32 - center_x;
             let dy = sy as i32 - center_y;
             let world_x = game.player.x + dx;
             let world_y = game.player.y + dy;
             let bright = is_bright_by_facing(game.facing, dx, dy);
-            let dim_mod = if bright {
-                Modifier::empty()
-            } else {
-                Modifier::DIM
-            };
+            let dim_mod = if bright { Modifier::empty() } else { Modifier::DIM };
 
             let span = if dx * dx + dy * dy > VISION_RADIUS * VISION_RADIUS {
                 Span::raw(" ")
             } else if sx as i32 == center_x && sy as i32 == center_y {
                 Span::styled("@", Style::default().fg(Color::Red).bold())
-            } else if game.has_enemy_at(world_x, world_y) {
-                let enemy_color = if bright {
-                    Color::LightRed
-                } else {
-                    Color::Indexed(52)
-                };
-                Span::styled("E", Style::default().fg(enemy_color).add_modifier(dim_mod))
+            } else if let Some((eglyph, ecolor)) = game.enemy_visual_at(world_x, world_y) {
+                let enemy_color = if bright { ecolor } else { Color::Indexed(52) };
+                Span::styled(
+                    eglyph.to_string(),
+                    Style::default().fg(enemy_color).add_modifier(dim_mod),
+                )
             } else if let Some(item) = game.item_at(world_x, world_y) {
-                let item_color = if bright {
-                    item.color()
-                } else {
-                    Color::Indexed(94)
-                };
+                let item_color = if bright { item.color() } else { Color::Indexed(94) };
                 Span::styled(
                     item.glyph().to_string(),
                     Style::default().fg(item_color).add_modifier(dim_mod),
                 )
             } else {
                 let t = game.tile(world_x, world_y);
-                let fg = if bright { t.color() } else { shadow_color(t) };
-                Span::styled(
-                    t.glyph().to_string(),
-                    Style::default().fg(fg).add_modifier(dim_mod),
-                )
+                let biome = game.biome_index_at(world_x, world_y);
+                let base_fg = if bright { t.color() } else { shadow_color(t) };
+                let fg = biome_tint_color(base_fg, biome, bright);
+                let glyph = biome_tile_glyph(t, biome);
+                Span::styled(glyph.to_string(), Style::default().fg(fg).add_modifier(dim_mod))
             };
             spans.push(span);
         }
@@ -1330,58 +628,121 @@ fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static
     lines
 }
 
-fn build_status_lines(game: &Game, esc_hold_count: u8) -> Vec<Line<'static>> {
+fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>> {
     let esc_line = if esc_hold_count == 0 {
-        "Hold ESC to quit".to_string()
+        tr("status.hold_esc").to_string()
     } else {
-        format!("Hold ESC to quit ({esc_hold_count}/{ESC_HOLD_STEPS})")
+        trf(
+            "status.hold_esc_progress",
+            &[
+                ("count", esc_hold_count.to_string()),
+                ("max", ESC_HOLD_STEPS.to_string()),
+            ],
+        )
     };
 
     let equipped = game
         .equipped_tool
         .as_ref()
         .map(InventoryItem::display_name)
-        .unwrap_or_else(|| "(none)".to_string());
+        .unwrap_or_else(|| tr("status.none").to_string());
 
     vec![
-        Line::from(format!("HP: {}/{}", game.player_hp.max(0), game.player_max_hp)),
-        Line::from(format!("Turn: {}", game.turn)),
-        Line::from(format!("Enemies: {}", game.enemies.len())),
-        Line::from(format!("Items: {}/{}", game.inventory_len(), MAX_INVENTORY)),
-        Line::from(format!("Equipped: {}", equipped)),
-        Line::from(format!(
-            "Pos: ({}, {})",
-            game.player.x, game.player.y
+        Line::from(trf(
+            "status.hp",
+            &[
+                ("hp", game.player_hp.max(0).to_string()),
+                ("max", game.player_max_hp.to_string()),
+            ],
         )),
-        Line::from(format!("Facing: {} {}", game.facing.label(), game.facing.glyph())),
-        Line::from(format!("Chunks: {}", game.world.chunks.len())),
+        Line::from(trf(
+            "status.atk_def",
+            &[
+                ("atk", game.player_attack_power().to_string()),
+                ("def", game.player_defense().to_string()),
+            ],
+        )),
+        Line::from(trf("status.turn", &[("turn", game.turn.to_string())])),
+        Line::from(trf(
+            "status.enemies",
+            &[("count", game.enemies.len().to_string())],
+        )),
+        Line::from(trf(
+            "status.items",
+            &[
+                ("count", game.inventory_len().to_string()),
+                ("max", MAX_INVENTORY.to_string()),
+            ],
+        )),
+        Line::from(trf("status.equipped", &[("name", equipped)])),
+        Line::from(trf("status.seed", &[("seed", game.world.seed.to_string())])),
+        Line::from(trf(
+            "status.pos",
+            &[
+                ("x", game.player.x.to_string()),
+                ("y", game.player.y.to_string()),
+            ],
+        )),
+        Line::from(trf(
+            "status.facing",
+            &[
+                ("label", game.facing.label().to_string()),
+                ("glyph", game.facing.glyph().to_string()),
+            ],
+        )),
+        Line::from(trf(
+            "status.chunks",
+            &[("count", game.generated_chunks().to_string())],
+        )),
+        Line::from(trf(
+            "status.biome",
+            &[("name", game.current_biome_name().to_string())],
+        )),
+        Line::from(trf(
+            "status.lang",
+            &[("lang", current_lang().to_string())],
+        )),
         Line::raw(""),
-        Line::from("W/A/S/D : Move"),
-        Line::from("Q/E/Z/C : Diagonal"),
-        Line::from("Arrows  : Move"),
-        Line::from("Shift+Move: Face only"),
-        Line::from("F       : Attack"),
-        Line::from("I       : Inventory"),
-        Line::from("Tab     : Crafting"),
-        Line::from(".       : Wait"),
+        Line::from(tr("status.ctrl.wasd")),
+        Line::from(tr("status.ctrl.diag")),
+        Line::from(tr("status.ctrl.arrows")),
+        Line::from(tr("status.ctrl.face")),
+        Line::from(tr("status.ctrl.attack")),
+        Line::from(tr("status.ctrl.menu")),
+        Line::from(tr("status.ctrl.wait")),
         Line::from(esc_line),
     ]
 }
 
 fn build_legend_lines() -> Vec<Line<'static>> {
-    let mut lines = vec![Line::from("@ : Player"), Line::from("E : Enemy")];
-    for item in [
-        Item::Potion,
-        Item::Wood,
-        Item::Stone,
-        Item::StringFiber,
-        Item::StoneAxe,
-    ] {
-        lines.push(Line::from(format!(
-            "{} : {}",
-            item.glyph(),
-            item_meta(item).legend
-        )));
+    let player_name = creature_meta("player").name.clone();
+    let mut lines = vec![Line::from(format!("@ : {}", player_name))];
+    let mut creature_ids: Vec<String> = defs()
+        .creatures
+        .keys()
+        .filter(|id| id.as_str() != "player")
+        .cloned()
+        .collect();
+    creature_ids.sort();
+    for id in creature_ids {
+        let c = creature_meta(&id);
+        let faction = match c.faction {
+            Faction::Ally => tr("faction.ally"),
+            Faction::Hostile => tr("faction.hostile"),
+            Faction::Neutral => tr("faction.neutral"),
+        };
+        lines.push(Line::from(format!("{} : {} ({})", c.glyph, c.name, faction)));
+    }
+    let mut item_ids: Vec<String> = defs().items.keys().cloned().collect();
+    item_ids.sort();
+    for id in item_ids {
+        if let Some(item) = Item::from_key(&id) {
+            lines.push(Line::from(format!(
+                "{} : {}",
+                item.glyph(),
+                item_meta(item).legend
+            )));
+        }
     }
     for tile in [
         Tile::Abyss,
@@ -1403,20 +764,6 @@ fn build_legend_lines() -> Vec<Line<'static>> {
     lines
 }
 
-fn destructible_info(tile: Tile) -> Option<(u8, Option<Item>, u8, Tile, &'static str)> {
-    let meta = tile_meta(tile);
-    let hits = meta.harvest_hits?;
-    let replace = meta.harvest_replace?;
-    let label = meta.harvest_label.as_deref().unwrap_or(meta.legend.as_str());
-    Some((
-        hits,
-        meta.harvest_drop,
-        meta.harvest_drop_chance,
-        replace,
-        label,
-    ))
-}
-
 fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
     if game.logs.is_empty() {
         return vec![Line::from("")];
@@ -1431,12 +778,18 @@ fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
 
 fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
     let mut lines = vec![
-        Line::from(format!("Items: {}/{}", game.inventory_len(), MAX_INVENTORY)),
-        Line::from("Enter: item menu  Esc/I: close"),
+        Line::from(trf(
+            "inventory.header",
+            &[
+                ("count", game.inventory_len().to_string()),
+                ("max", MAX_INVENTORY.to_string()),
+            ],
+        )),
+        Line::from(tr("inventory.help")),
         Line::raw(""),
     ];
     if game.inventory.is_empty() {
-        lines.push(Line::from("(empty)"));
+        lines.push(Line::from(tr("inventory.empty")));
         return lines;
     }
     for (idx, item) in game.inventory.iter().enumerate() {
@@ -1459,13 +812,110 @@ fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
     lines
 }
 
+fn build_inventory_detail_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
+    let Some(item) = game.inventory.get(selected) else {
+        return vec![
+            Line::from(tr("inventory.no_selected")),
+            Line::raw(""),
+            Line::from(tr("inventory.no_selected_help")),
+        ];
+    };
+    let meta = item_meta(item.kind);
+    vec![
+        Line::from(vec![
+            Span::styled(
+                item.kind.glyph().to_string(),
+                Style::default().fg(item.kind.color()).bold(),
+            ),
+            Span::raw(" "),
+            Span::styled(item.display_name(), Style::default().bold()),
+        ]),
+        Line::raw(""),
+        Line::from(trf("inventory.type", &[("type", meta.status.clone())])),
+        Line::from(trf("inventory.id", &[("id", item.kind.key().to_string())])),
+        Line::raw(""),
+        Line::from(tr("inventory.description")),
+        Line::from(meta.description.clone()),
+    ]
+}
+
+fn render_inventory_modal(frame: &mut Frame, game: &Game, selected: usize) {
+    let area = centered_rect(70, 70, frame.area());
+    frame.render_widget(Clear, area);
+    let container = Block::default()
+        .borders(Borders::ALL)
+        .title(tr("title.inventory"));
+    let inner = container.inner(area);
+    frame.render_widget(container, area);
+
+    let cols = Layout::horizontal([Constraint::Percentage(52), Constraint::Percentage(48)]).split(inner);
+    let left = Paragraph::new(build_inventory_lines(game, selected))
+        .block(Block::default().borders(Borders::RIGHT))
+        .wrap(ratatui::widgets::Wrap { trim: false });
+    frame.render_widget(left, cols[0]);
+
+    let right = Paragraph::new(build_inventory_detail_lines(game, selected))
+        .wrap(ratatui::widgets::Wrap { trim: true });
+    frame.render_widget(right, cols[1]);
+}
+
+fn build_main_menu_lines(selected: usize) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        Line::from(tr("menu.help_updown")),
+        Line::from(tr("menu.help_enter")),
+        Line::from(tr("menu.help_esc")),
+        Line::raw(""),
+    ];
+    for (idx, entry) in MAIN_MENU_ENTRIES.iter().enumerate() {
+        let marker = if idx == selected { ">" } else { " " };
+        lines.push(Line::from(format!("{} {}", marker, entry.label())));
+    }
+    lines
+}
+
+fn build_settings_lines(selected: usize) -> Vec<Line<'static>> {
+    let langs = available_languages();
+    let mut lines = vec![
+        Line::from(tr("settings.language_title")),
+        Line::from(tr("settings.language_help")),
+        Line::raw(""),
+    ];
+    for (idx, (code, name)) in langs.iter().enumerate() {
+        let marker = if idx == selected { ">" } else { " " };
+        let current = if *code == current_lang() {
+            tr("settings.current_mark")
+        } else {
+            ""
+        };
+        lines.push(Line::from(format!("{marker} {name} ({code}) {current}")));
+    }
+    lines.push(Line::raw(""));
+    lines.push(Line::from(tr("settings.back")));
+    lines
+}
+
+fn build_hints_lines() -> Vec<Line<'static>> {
+    vec![
+        Line::from(tr("hints.title")),
+        Line::raw(""),
+        Line::from(tr("hints.1")),
+        Line::from(tr("hints.2")),
+        Line::from(tr("hints.3")),
+        Line::from(tr("hints.4")),
+        Line::from(tr("hints.5")),
+        Line::from(tr("hints.6")),
+        Line::raw(""),
+        Line::from(tr("hints.back")),
+    ]
+}
+
 fn build_item_menu_lines(game: &Game, selected: usize, action_idx: usize) -> Vec<Line<'static>> {
     let item_name = game
         .inventory_item_name(selected)
-        .unwrap_or_else(|| "(missing)".to_string());
+        .unwrap_or_else(|| tr("status.none").to_string());
     let mut lines = vec![
-        Line::from(format!("Item: {}", item_name)),
-        Line::from("Up/Down: choose  Enter: select  Esc: back"),
+        Line::from(trf("item_menu.item", &[("name", item_name)])),
+        Line::from(tr("item_menu.help")),
         Line::raw(""),
     ];
     for (idx, action) in ITEM_MENU_ACTIONS.iter().enumerate() {
@@ -1478,10 +928,10 @@ fn build_item_menu_lines(game: &Game, selected: usize, action_idx: usize) -> Vec
 fn build_rename_lines(game: &Game, selected: usize, input: &str) -> Vec<Line<'static>> {
     let current = game
         .inventory_item_name(selected)
-        .unwrap_or_else(|| "(missing)".to_string());
+        .unwrap_or_else(|| tr("status.none").to_string());
     vec![
-        Line::from(format!("Current: {}", current)),
-        Line::from("Type new name, Enter: confirm, Esc: cancel"),
+        Line::from(trf("rename.current", &[("name", current)])),
+        Line::from(tr("rename.help")),
         Line::raw(""),
         Line::from(format!("> {}", input)),
     ]
@@ -1497,7 +947,9 @@ fn render_crafting_modal(
 ) {
     let area = centered_rect(70, 70, frame.area());
     frame.render_widget(Clear, area);
-    let container = Block::default().borders(Borders::ALL).title("Crafting (3x3)");
+    let container = Block::default()
+        .borders(Borders::ALL)
+        .title(tr("title.crafting"));
     let inner = container.inner(area);
     frame.render_widget(container, area);
 
@@ -1512,8 +964,8 @@ fn render_crafting_modal(
     .split(inner);
 
     let instructions = Paragraph::new(vec![
-        Line::from("Grid: move + Enter to choose item | Inventory: choose + Enter to place"),
-        Line::from("X craft, Backspace remove from cell, Esc/Tab close"),
+        Line::from(tr("craft.help1")),
+        Line::from(tr("craft.help2")),
     ]);
     frame.render_widget(instructions, sub[0]);
 
@@ -1548,11 +1000,11 @@ fn render_crafting_modal(
     }
     frame.render_widget(Paragraph::new(grid_lines), sub[1]);
 
-    frame.render_widget(Paragraph::new(Line::from("Inventory:")), sub[2]);
+    frame.render_widget(Paragraph::new(Line::from(tr("craft.inventory"))), sub[2]);
 
     let mut inv_spans: Vec<Span<'static>> = Vec::new();
     if game.inventory.is_empty() {
-        inv_spans.push(Span::raw("(empty)"));
+        inv_spans.push(Span::raw(tr("inventory.empty")));
     } else {
         for (idx, item) in game.inventory.iter().enumerate() {
             let selected = idx == selected_inv;
@@ -1580,14 +1032,14 @@ fn render_crafting_modal(
         .inventory
         .get(selected_inv)
         .map(InventoryItem::display_name)
-        .unwrap_or_else(|| "(none)".to_string());
+        .unwrap_or_else(|| tr("status.none").to_string());
     let result_text = match find_recipe(grid) {
-        Some(recipe) => format!("Result: {}", recipe.label),
-        None => "Result: (no recipe)".to_string(),
+        Some(recipe) => trf("craft.result", &[("label", recipe.label.clone())]),
+        None => tr("craft.no_result").to_string(),
     };
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(format!("Selected: {}", selected_name)),
+            Line::from(trf("craft.selected", &[("name", selected_name)])),
             Line::from(result_text),
         ]),
         sub[4],
@@ -1628,6 +1080,7 @@ fn fbm_noise01(
 }
 
 fn main() {
+    text::init_from_env();
     if let Err(e) = run() {
         eprintln!("{e}");
     }
@@ -1672,7 +1125,7 @@ fn close_crafting_mode(game: &mut Game, grid: &mut [Option<InventoryItem>; 9]) {
 
 fn execute_crafting(game: &mut Game, grid: &mut [Option<InventoryItem>; 9]) -> bool {
     let Some(recipe) = find_recipe(grid) else {
-        game.push_log("No matching recipe");
+        game.push_log(tr("craft.log.no_recipe"));
         return false;
     };
     let result = recipe.result;
@@ -1682,14 +1135,17 @@ fn execute_crafting(game: &mut Game, grid: &mut [Option<InventoryItem>; 9]) -> b
     }
 
     if game.add_item_kind_to_inventory(result) {
-        game.push_log(format!("Crafted {}", recipe.label));
+        game.push_log(trf("craft.log.crafted", &[("label", recipe.label.clone())]));
     } else if game.place_ground_item_near_player(result) {
-        game.push_log(format!(
-            "Crafted {}, but inventory full so it dropped nearby",
-            recipe.label
+        game.push_log(trf(
+            "craft.log.crafted_drop",
+            &[("label", recipe.label.clone())],
         ));
     } else {
-        game.push_log(format!("Crafted {} but it was lost", recipe.label));
+        game.push_log(trf(
+            "craft.log.crafted_lost",
+            &[("label", recipe.label.clone())],
+        ));
     }
     true
 }
@@ -1716,7 +1172,34 @@ fn place_inventory_item_into_grid(
             *selected_inv = new_len - 1;
         }
     } else {
-        game.push_log("No inventory item selected");
+        game.push_log(tr("craft.log.no_inv_selected"));
+    }
+}
+
+fn load_game_or_new(seed: u64) -> Game {
+    let path = Path::new(SAVE_FILE);
+    match save::load_game(path) {
+        Ok(mut game) => {
+            game.push_log(tr("save.loaded"));
+            game
+        }
+        Err(_) => Game::new(seed),
+    }
+}
+
+fn persist_game(game: &mut Game) {
+    let path = Path::new(SAVE_FILE);
+    if let Err(err) = save::save_game(path, game) {
+        game.push_log(trf("save.failed", &[("error", err)]));
+    }
+}
+
+fn erase_save_on_death(game: &mut Game) {
+    let path = Path::new(SAVE_FILE);
+    if save::delete_save(path).is_ok() {
+        game.push_log(tr("save.deleted_on_death"));
+    } else {
+        game.push_log(tr("save.delete_failed_on_death"));
     }
 }
 
@@ -1725,12 +1208,13 @@ fn run() -> io::Result<()> {
     let backend = ratatui::backend::CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let mut game = Game::new(12345);
+    let mut game = load_game_or_new(initial_seed());
     let mut esc_hold_count: u8 = 0;
     let mut ui_mode = UiMode::Normal;
 
     loop {
         terminal.draw(|frame| render_ui(frame, &mut game, esc_hold_count, &ui_mode))?;
+        game.advance_effects();
 
         if !event::poll(Duration::from_millis(50))? {
             continue;
@@ -1743,9 +1227,12 @@ fn run() -> io::Result<()> {
                     if key.code == KeyCode::Esc {
                         if key.kind == KeyEventKind::Press || key.kind == KeyEventKind::Repeat {
                             esc_hold_count = esc_hold_count.saturating_add(1);
-                            game.push_log(format!(
-                                "Hold ESC to quit ({}/{})",
-                                esc_hold_count, ESC_HOLD_STEPS
+                            game.push_log(trf(
+                                "log.hold_esc",
+                                &[
+                                    ("count", esc_hold_count.to_string()),
+                                    ("max", ESC_HOLD_STEPS.to_string()),
+                                ],
                             ));
                             if esc_hold_count >= ESC_HOLD_STEPS {
                                 break;
@@ -1763,17 +1250,8 @@ fn run() -> io::Result<()> {
                         && !key.modifiers.contains(KeyModifiers::CONTROL)
                         && !key.modifiers.contains(KeyModifiers::ALT);
 
-                    if matches!(key.code, KeyCode::Char('i') | KeyCode::Char('I')) {
-                        ui_mode = UiMode::Inventory { selected: 0 };
-                        continue;
-                    }
-                    if key.code == KeyCode::Tab {
-                        ui_mode = UiMode::Crafting {
-                            cursor: 0,
-                            selected_inv: 0,
-                            focus: CraftFocus::Grid,
-                            grid: std::array::from_fn(|_| None),
-                        };
+                    if matches!(key.code, KeyCode::Char('m') | KeyCode::Char('M')) {
+                        ui_mode = UiMode::MainMenu { selected: 0 };
                         continue;
                     }
 
@@ -1797,8 +1275,80 @@ fn run() -> io::Result<()> {
                     if let Some(action) = action {
                         game.apply_action(action);
                         if game.player_hp <= 0 {
+                            erase_save_on_death(&mut game);
                             break;
                         }
+                        persist_game(&mut game);
+                    }
+                }
+                UiMode::MainMenu { selected } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Esc => ui_mode = UiMode::Normal,
+                        KeyCode::Up => *selected = selected.saturating_sub(1),
+                        KeyCode::Down => {
+                            *selected = (*selected + 1).min(MAIN_MENU_ENTRIES.len() - 1);
+                        }
+                        KeyCode::Enter => match MAIN_MENU_ENTRIES[*selected] {
+                            MainMenuEntry::Items => ui_mode = UiMode::Inventory { selected: 0 },
+                            MainMenuEntry::Crafting => {
+                                ui_mode = UiMode::Crafting {
+                                    cursor: 0,
+                                    selected_inv: 0,
+                                    focus: CraftFocus::Grid,
+                                    grid: std::array::from_fn(|_| None),
+                                };
+                            }
+                            MainMenuEntry::Settings => {
+                                let langs = available_languages();
+                                let selected = langs
+                                    .iter()
+                                    .position(|(code, _)| *code == current_lang())
+                                    .unwrap_or(0);
+                                ui_mode = UiMode::Settings { selected };
+                            }
+                            MainMenuEntry::Hints => ui_mode = UiMode::Hints,
+                            MainMenuEntry::Exit => break,
+                        },
+                        _ => {}
+                    }
+                }
+                UiMode::Settings { selected } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    let langs = available_languages();
+                    match key.code {
+                        KeyCode::Esc => ui_mode = UiMode::MainMenu { selected: 0 },
+                        KeyCode::Up => {
+                            *selected = selected.saturating_sub(1);
+                        }
+                        KeyCode::Down => {
+                            if !langs.is_empty() {
+                                *selected = (*selected + 1).min(langs.len() - 1);
+                            }
+                        }
+                        KeyCode::Enter => {
+                            if let Some((code, name)) = langs.get(*selected) {
+                                if set_lang(code) {
+                                    game.push_log(trf(
+                                        "settings.lang_changed",
+                                        &[("name", (*name).to_string())],
+                                    ));
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                UiMode::Hints => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    if key.code == KeyCode::Esc {
+                        ui_mode = UiMode::MainMenu { selected: 0 };
                     }
                 }
                 UiMode::Inventory { selected } => {
@@ -1807,9 +1357,7 @@ fn run() -> io::Result<()> {
                     }
                     let len = game.inventory_len();
                     match key.code {
-                        KeyCode::Esc | KeyCode::Char('i') | KeyCode::Char('I') => {
-                            ui_mode = UiMode::Normal;
-                        }
+                        KeyCode::Esc => ui_mode = UiMode::MainMenu { selected: 0 },
                         KeyCode::Up => {
                             if len > 0 {
                                 *selected = selected.saturating_sub(1);
@@ -1871,10 +1419,15 @@ fn run() -> io::Result<()> {
                                 ItemMenuAction::Drop => {
                                     if game.drop_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
+                                        if game.player_hp <= 0 {
+                                            erase_save_on_death(&mut game);
+                                            break;
+                                        }
+                                        persist_game(&mut game);
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
-                                        ui_mode = UiMode::Normal;
+                                        ui_mode = UiMode::Inventory { selected: 0 };
                                     } else {
                                         ui_mode = UiMode::Inventory {
                                             selected: item_idx.min(next_len - 1),
@@ -1884,10 +1437,15 @@ fn run() -> io::Result<()> {
                                 ItemMenuAction::Throw => {
                                     if game.throw_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
+                                        if game.player_hp <= 0 {
+                                            erase_save_on_death(&mut game);
+                                            break;
+                                        }
+                                        persist_game(&mut game);
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
-                                        ui_mode = UiMode::Normal;
+                                        ui_mode = UiMode::Inventory { selected: 0 };
                                     } else {
                                         ui_mode = UiMode::Inventory {
                                             selected: item_idx.min(next_len - 1),
@@ -1897,10 +1455,15 @@ fn run() -> io::Result<()> {
                                 ItemMenuAction::Use => {
                                     if game.use_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
+                                        if game.player_hp <= 0 {
+                                            erase_save_on_death(&mut game);
+                                            break;
+                                        }
+                                        persist_game(&mut game);
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
-                                        ui_mode = UiMode::Normal;
+                                        ui_mode = UiMode::Inventory { selected: 0 };
                                     } else {
                                         ui_mode = UiMode::Inventory {
                                             selected: item_idx.min(next_len - 1),
@@ -1921,7 +1484,7 @@ fn run() -> io::Result<()> {
                     }
                     let len = game.inventory_len();
                     if len == 0 {
-                        ui_mode = UiMode::Normal;
+                        ui_mode = UiMode::Inventory { selected: 0 };
                         continue;
                     }
                     let item_idx = (*selected).min(len - 1);
@@ -1935,6 +1498,7 @@ fn run() -> io::Result<()> {
                         KeyCode::Enter => {
                             let name = input.clone();
                             let _ = game.rename_inventory_item(item_idx, name);
+                            persist_game(&mut game);
                             ui_mode = UiMode::ItemMenu {
                                 selected: item_idx,
                                 action_idx: 0,
@@ -1973,7 +1537,7 @@ fn run() -> io::Result<()> {
                                 *focus = CraftFocus::Grid;
                             } else {
                                 close_crafting_mode(&mut game, grid);
-                                ui_mode = UiMode::Normal;
+                                ui_mode = UiMode::MainMenu { selected: 1 };
                             }
                         }
                         KeyCode::Up => {
@@ -2029,8 +1593,10 @@ fn run() -> io::Result<()> {
                                 if *focus == CraftFocus::Grid && execute_crafting(&mut game, grid) {
                                     game.consume_non_attack_turn();
                                     if game.player_hp <= 0 {
+                                        erase_save_on_death(&mut game);
                                         break;
                                     }
+                                    persist_game(&mut game);
                                 }
                             }
                             ' ' => {
@@ -2041,7 +1607,7 @@ fn run() -> io::Result<()> {
                                     } else if inv_len > 0 {
                                         *focus = CraftFocus::Inventory;
                                     } else {
-                                        game.push_log("No inventory item to place");
+                                        game.push_log(tr("log.no_inv_to_place"));
                                     }
                                 } else {
                                     place_inventory_item_into_grid(
@@ -2063,7 +1629,7 @@ fn run() -> io::Result<()> {
                                 } else if inv_len > 0 {
                                     *focus = CraftFocus::Inventory;
                                 } else {
-                                    game.push_log("No inventory item to place");
+                                    game.push_log(tr("log.no_inv_to_place"));
                                 }
                             } else {
                                 place_inventory_item_into_grid(&mut game, grid, *cursor, selected_inv);
@@ -2086,4 +1652,16 @@ fn run() -> io::Result<()> {
     }
 
     Ok(())
+}
+
+fn initial_seed() -> u64 {
+    if let Ok(raw) = env::var("ABYSS_SEED") {
+        if let Ok(seed) = raw.parse::<u64>() {
+            return seed;
+        }
+    }
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(d) => d.as_nanos() as u64,
+        Err(_) => 0xC0FFEE_u64 ^ 0xA11CE_u64,
+    }
 }

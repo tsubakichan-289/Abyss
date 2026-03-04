@@ -89,6 +89,26 @@ name = "Potion"
 glyph = "!"
 color = 208
 legend = "Potion"
+status = "Consumable"
+description = "Restores HP when used."
+
+[[items]]
+id = "herb"
+name = "Herb"
+glyph = "+"
+color = 47
+legend = "Herb"
+status = "Consumable"
+description = "A small medicinal herb. Restores a little HP."
+
+[[items]]
+id = "elixir"
+name = "Elixir"
+glyph = "E"
+color = 220
+legend = "Elixir"
+status = "Consumable"
+description = "A strong restorative drink. Restores a lot of HP."
 
 [[items]]
 id = "wood"
@@ -96,6 +116,8 @@ name = "Wood"
 glyph = "w"
 color = 137
 legend = "Wood item"
+status = "Material"
+description = "Basic crafting material from trees."
 
 [[items]]
 id = "stone"
@@ -103,6 +125,26 @@ name = "Stone"
 glyph = "s"
 color = 245
 legend = "Stone item"
+status = "Material"
+description = "Basic crafting material from rocks."
+
+[[items]]
+id = "iron_ingot"
+name = "Iron Ingot"
+glyph = "i"
+color = 252
+legend = "Iron Ingot"
+status = "Material"
+description = "Refined metal for stronger equipment."
+
+[[items]]
+id = "hide"
+name = "Hide"
+glyph = "h"
+color = 180
+legend = "Hide"
+status = "Material"
+description = "Tough hide from beasts."
 
 [[items]]
 id = "string"
@@ -110,6 +152,8 @@ name = "String"
 glyph = "="
 color = 223
 legend = "String item"
+status = "Material"
+description = "Flexible crafting material from grass."
 
 [[items]]
 id = "stone_axe"
@@ -117,6 +161,26 @@ name = "Stone Axe"
 glyph = "a"
 color = 250
 legend = "Stone Axe"
+status = "Tool"
+description = "Can be equipped as a tool."
+
+[[items]]
+id = "iron_sword"
+name = "Iron Sword"
+glyph = "/"
+color = 250
+legend = "Iron Sword"
+status = "Weapon"
+description = "A balanced weapon with high attack power."
+
+[[items]]
+id = "iron_pickaxe"
+name = "Iron Pickaxe"
+glyph = "p"
+color = 247
+legend = "Iron Pickaxe"
+status = "Tool"
+description = "A heavy tool useful as a sturdy weapon."
 
 [[recipes]]
 result = "stone_axe"
@@ -127,3 +191,84 @@ inputs = ["stone", "stone", "", "stone", "wood", "", "", "string", ""]
 result = "stone_axe"
 label = "Stone Axe (mirrored)"
 inputs = ["", "stone", "stone", "", "wood", "stone", "", "string", ""]
+
+[[recipes]]
+result = "elixir"
+label = "Elixir"
+inputs = ["", "herb", "", "herb", "potion", "herb", "", "herb", ""]
+
+[[recipes]]
+result = "iron_sword"
+label = "Iron Sword"
+inputs = ["", "iron_ingot", "", "", "iron_ingot", "", "", "wood", ""]
+
+[[recipes]]
+result = "iron_pickaxe"
+label = "Iron Pickaxe"
+inputs = ["iron_ingot", "iron_ingot", "iron_ingot", "", "wood", "", "", "wood", ""]
+
+[[creatures]]
+id = "player"
+name = "Player"
+faction = "ally"
+glyph = "@"
+color = 196
+hp = 20
+attack = 2
+defense = 1
+spawn_weight = 0
+
+[[creatures]]
+id = "slime"
+name = "Slime"
+faction = "hostile"
+glyph = "E"
+color = 160
+hp = 2
+attack = 2
+defense = 0
+spawn_weight = 100
+
+[[creatures]]
+id = "wanderer"
+name = "Wanderer"
+faction = "neutral"
+glyph = "n"
+color = 117
+hp = 4
+attack = 1
+defense = 0
+spawn_weight = 0
+
+[[creatures]]
+id = "wolf"
+name = "Wolf"
+faction = "hostile"
+glyph = "W"
+color = 180
+hp = 4
+attack = 3
+defense = 1
+spawn_weight = 70
+
+[[creatures]]
+id = "bat"
+name = "Bat"
+faction = "hostile"
+glyph = "B"
+color = 141
+hp = 3
+attack = 2
+defense = 0
+spawn_weight = 60
+
+[[creatures]]
+id = "golem"
+name = "Golem"
+faction = "hostile"
+glyph = "G"
+color = 246
+hp = 8
+attack = 4
+defense = 2
+spawn_weight = 35
