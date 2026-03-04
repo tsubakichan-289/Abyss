@@ -2,6 +2,7 @@ mod noise;
 
 use std::collections::HashMap;
 use std::io;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -11,6 +12,7 @@ use crossterm::terminal::{
 };
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use serde::Deserialize;
 
 const CHUNK_SIZE: usize = 16;
 const CHUNK_AREA: usize = CHUNK_SIZE * CHUNK_SIZE;
@@ -40,31 +42,42 @@ enum Item {
     Potion,
     Wood,
     Stone,
+    StringFiber,
+    StoneAxe,
 }
 
 impl Item {
-    fn glyph(self) -> char {
+    fn key(self) -> &'static str {
         match self {
-            Self::Potion => '!',
-            Self::Wood => 'w',
-            Self::Stone => 's',
+            Self::Potion => "potion",
+            Self::Wood => "wood",
+            Self::Stone => "stone",
+            Self::StringFiber => "string",
+            Self::StoneAxe => "stone_axe",
         }
+    }
+
+    fn from_key(key: &str) -> Option<Self> {
+        match key {
+            "potion" => Some(Self::Potion),
+            "wood" => Some(Self::Wood),
+            "stone" => Some(Self::Stone),
+            "string" => Some(Self::StringFiber),
+            "stone_axe" => Some(Self::StoneAxe),
+            _ => None,
+        }
+    }
+
+    fn glyph(self) -> char {
+        item_meta(self).glyph
     }
 
     fn color(self) -> Color {
-        match self {
-            Self::Potion => Color::Indexed(208),
-            Self::Wood => Color::Indexed(137),
-            Self::Stone => Color::Indexed(245),
-        }
+        item_meta(self).color
     }
 
     fn name(self) -> &'static str {
-        match self {
-            Self::Potion => "Potion",
-            Self::Wood => "Wood",
-            Self::Stone => "Stone",
-        }
+        &item_meta(self).name
     }
 }
 
@@ -84,6 +97,35 @@ impl InventoryItem {
 }
 
 impl Tile {
+    fn key(self) -> &'static str {
+        match self {
+            Self::Abyss => "abyss",
+            Self::DeepWater => "deep_water",
+            Self::ShallowWater => "shallow_water",
+            Self::Sand => "sand",
+            Self::Grass => "grass",
+            Self::Forest => "forest",
+            Self::Mountain => "mountain",
+            Self::Rock => "rock",
+            Self::Wall => "wall",
+        }
+    }
+
+    fn from_key(key: &str) -> Option<Self> {
+        match key {
+            "abyss" => Some(Self::Abyss),
+            "deep_water" => Some(Self::DeepWater),
+            "shallow_water" => Some(Self::ShallowWater),
+            "sand" => Some(Self::Sand),
+            "grass" => Some(Self::Grass),
+            "forest" => Some(Self::Forest),
+            "mountain" => Some(Self::Mountain),
+            "rock" => Some(Self::Rock),
+            "wall" => Some(Self::Wall),
+            _ => None,
+        }
+    }
+
     fn from_height(h: f64) -> Self {
         if h < 0.34 {
             Self::DeepWater
@@ -101,50 +143,207 @@ impl Tile {
     }
 
     fn glyph(self) -> char {
-        match self {
-            Self::Abyss => 'v',
-            Self::DeepWater => '~',
-            Self::ShallowWater => ',',
-            Self::Sand => '.',
-            Self::Grass => '"',
-            Self::Forest => 'T',
-            Self::Mountain => '^',
-            Self::Rock => 'o',
-            Self::Wall => '#',
-        }
+        tile_meta(self).glyph
     }
 
     fn color(self) -> Color {
-        match self {
-            Self::Abyss => Color::Indexed(16),
-            Self::DeepWater => Color::Indexed(18),
-            Self::ShallowWater => Color::Indexed(25),
-            Self::Sand => Color::Indexed(180),
-            Self::Grass => Color::Indexed(70),
-            Self::Forest => Color::Indexed(28),
-            Self::Mountain => Color::Indexed(245),
-            Self::Rock => Color::Indexed(250),
-            Self::Wall => Color::Indexed(238),
-        }
+        tile_meta(self).color
     }
 
     fn walkable(self) -> bool {
-        matches!(self, Self::Sand | Self::Grass | Self::Forest)
+        tile_meta(self).walkable
     }
 }
 
 fn shadow_color(tile: Tile) -> Color {
-    match tile {
-        Tile::Abyss => Color::Indexed(16),
-        Tile::DeepWater => Color::Indexed(17),
-        Tile::ShallowWater => Color::Indexed(18),
-        Tile::Sand => Color::Indexed(136),
-        Tile::Grass => Color::Indexed(22),
-        Tile::Forest => Color::Indexed(22),
-        Tile::Mountain => Color::Indexed(238),
-        Tile::Rock => Color::Indexed(239),
-        Tile::Wall => Color::Indexed(236),
+    tile_meta(tile).shadow_color
+}
+
+#[derive(Deserialize)]
+struct GameDataFile {
+    tiles: Vec<TileDefRaw>,
+    items: Vec<ItemDefRaw>,
+    recipes: Vec<RecipeDefRaw>,
+}
+
+#[derive(Deserialize)]
+struct TileDefRaw {
+    id: String,
+    glyph: String,
+    color: u8,
+    shadow_color: Option<u8>,
+    walkable: bool,
+    legend: String,
+    harvest_hits: Option<u8>,
+    harvest_drop: Option<String>,
+    harvest_drop_chance: Option<u8>,
+    harvest_replace: Option<String>,
+    harvest_label: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ItemDefRaw {
+    id: String,
+    name: String,
+    glyph: String,
+    color: u8,
+    legend: String,
+}
+
+#[derive(Deserialize)]
+struct RecipeDefRaw {
+    result: String,
+    label: Option<String>,
+    inputs: Vec<String>,
+}
+
+#[derive(Clone)]
+struct TileDef {
+    glyph: char,
+    color: Color,
+    shadow_color: Color,
+    walkable: bool,
+    legend: String,
+    harvest_hits: Option<u8>,
+    harvest_drop: Option<Item>,
+    harvest_drop_chance: u8,
+    harvest_replace: Option<Tile>,
+    harvest_label: Option<String>,
+}
+
+#[derive(Clone)]
+struct ItemDef {
+    name: String,
+    glyph: char,
+    color: Color,
+    legend: String,
+}
+
+#[derive(Clone)]
+struct RecipeDef {
+    result: Item,
+    label: String,
+    inputs: [Option<Item>; 9],
+}
+
+struct GameDefs {
+    tiles: HashMap<String, TileDef>,
+    items: HashMap<String, ItemDef>,
+    recipes: Vec<RecipeDef>,
+}
+
+fn defs() -> &'static GameDefs {
+    static DEFS: OnceLock<GameDefs> = OnceLock::new();
+    DEFS.get_or_init(|| load_defs())
+}
+
+fn parse_single_char(s: &str, kind: &str, id: &str) -> char {
+    let mut it = s.chars();
+    let c = it
+        .next()
+        .unwrap_or_else(|| panic!("{kind} '{id}' has empty glyph"));
+    assert!(
+        it.next().is_none(),
+        "{kind} '{id}' glyph must be exactly 1 char"
+    );
+    c
+}
+
+fn load_defs() -> GameDefs {
+    let raw = include_str!("../data/game_data.toml");
+    let parsed: GameDataFile =
+        toml::from_str(raw).expect("failed to parse data/game_data.toml");
+
+    let mut items = HashMap::new();
+    for it in parsed.items {
+        let item = Item::from_key(&it.id)
+            .unwrap_or_else(|| panic!("unknown item id in data file: {}", it.id));
+        let _ = item;
+        items.insert(
+            it.id.clone(),
+            ItemDef {
+                name: it.name,
+                glyph: parse_single_char(&it.glyph, "item", &it.id),
+                color: Color::Indexed(it.color),
+                legend: it.legend,
+            },
+        );
     }
+
+    let mut tiles = HashMap::new();
+    for t in parsed.tiles {
+        let tile = Tile::from_key(&t.id)
+            .unwrap_or_else(|| panic!("unknown tile id in data file: {}", t.id));
+        let _ = tile;
+        let harvest_drop = t
+            .harvest_drop
+            .as_deref()
+            .map(|k| Item::from_key(k).unwrap_or_else(|| panic!("unknown harvest_drop item: {k}")));
+        let harvest_replace = t.harvest_replace.as_deref().map(|k| {
+            Tile::from_key(k).unwrap_or_else(|| panic!("unknown harvest_replace tile: {k}"))
+        });
+        tiles.insert(
+            t.id.clone(),
+            TileDef {
+                glyph: parse_single_char(&t.glyph, "tile", &t.id),
+                color: Color::Indexed(t.color),
+                shadow_color: Color::Indexed(t.shadow_color.unwrap_or(t.color)),
+                walkable: t.walkable,
+                legend: t.legend,
+                harvest_hits: t.harvest_hits,
+                harvest_drop,
+                harvest_drop_chance: t.harvest_drop_chance.unwrap_or(100),
+                harvest_replace,
+                harvest_label: t.harvest_label,
+            },
+        );
+    }
+
+    let mut recipes = Vec::new();
+    for r in parsed.recipes {
+        assert!(r.inputs.len() == 9, "recipe '{}' must have 9 inputs", r.result);
+        let mut inputs: [Option<Item>; 9] = [None; 9];
+        for (i, k) in r.inputs.iter().enumerate() {
+            let trimmed = k.trim();
+            if trimmed.is_empty() {
+                inputs[i] = None;
+            } else {
+                inputs[i] = Some(
+                    Item::from_key(trimmed)
+                        .unwrap_or_else(|| panic!("unknown recipe input item: {}", trimmed)),
+                );
+            }
+        }
+        let result = Item::from_key(&r.result)
+            .unwrap_or_else(|| panic!("unknown recipe result item: {}", r.result));
+        recipes.push(RecipeDef {
+            result,
+            label: r.label.unwrap_or_else(|| r.result.clone()),
+            inputs,
+        });
+    }
+
+    GameDefs {
+        tiles,
+        items,
+        recipes,
+    }
+}
+
+fn tile_meta(tile: Tile) -> &'static TileDef {
+    let key = tile.key();
+    defs()
+        .tiles
+        .get(key)
+        .unwrap_or_else(|| panic!("tile '{}' missing in data file", key))
+}
+
+fn item_meta(item: Item) -> &'static ItemDef {
+    let key = item.key();
+    defs()
+        .items
+        .get(key)
+        .unwrap_or_else(|| panic!("item '{}' missing in data file", key))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -287,6 +486,18 @@ enum UiMode {
     Inventory { selected: usize },
     ItemMenu { selected: usize, action_idx: usize },
     RenameItem { selected: usize, input: String },
+    Crafting {
+        cursor: usize,
+        selected_inv: usize,
+        focus: CraftFocus,
+        grid: [Option<InventoryItem>; 9],
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CraftFocus {
+    Grid,
+    Inventory,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -414,6 +625,7 @@ struct Game {
     player_hp: i32,
     player_max_hp: i32,
     inventory: Vec<InventoryItem>,
+    equipped_tool: Option<InventoryItem>,
     enemies: Vec<Enemy>,
     ground_items: HashMap<(i32, i32), Item>,
     harvest_state: Option<HarvestState>,
@@ -431,6 +643,7 @@ impl Game {
             player_hp: 20,
             player_max_hp: 20,
             inventory: Vec::new(),
+            equipped_tool: None,
             enemies: Vec::new(),
             ground_items: HashMap::new(),
             harvest_state: None,
@@ -567,7 +780,7 @@ impl Game {
             }
             None => {
                 let target_tile = self.tile(tx, ty);
-                if let Some((durability, drop_item, replace_to, label)) =
+                if let Some((durability, drop_item, drop_chance, replace_to, label)) =
                     destructible_info(target_tile)
                 {
                     let mut hits = 1_u8;
@@ -579,10 +792,18 @@ impl Game {
                     if hits >= durability {
                         self.set_tile(tx, ty, replace_to);
                         self.harvest_state = None;
-                        if self.item_at(tx, ty).is_none() {
-                            self.ground_items.insert((tx, ty), drop_item);
+                        if let Some(item) = drop_item {
+                            if self.item_at(tx, ty).is_none()
+                                && self.rand_u32() % 100 < drop_chance as u32
+                            {
+                                self.ground_items.insert((tx, ty), item);
+                                self.push_log(format!("{} broke and became {}", label, item.name()));
+                            } else {
+                                self.push_log(format!("{} broke", label));
+                            }
+                        } else {
+                            self.push_log(format!("{} broke", label));
                         }
-                        self.push_log(format!("{} broke and became {}", label, drop_item.name()));
                     } else {
                         self.harvest_state = Some(HarvestState {
                             target: (tx, ty),
@@ -615,6 +836,55 @@ impl Game {
         self.inventory.get(idx).map(InventoryItem::display_name)
     }
 
+    fn add_item_to_inventory(&mut self, item: InventoryItem) -> bool {
+        if self.inventory_full() {
+            return false;
+        }
+        self.inventory.push(item);
+        true
+    }
+
+    fn add_item_kind_to_inventory(&mut self, kind: Item) -> bool {
+        self.add_item_to_inventory(InventoryItem {
+            kind,
+            custom_name: None,
+        })
+    }
+
+    fn place_ground_item_near_player(&mut self, kind: Item) -> bool {
+        let offsets = [
+            (0, 0),
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ];
+        for (dx, dy) in offsets {
+            let x = self.player.x + dx;
+            let y = self.player.y + dy;
+            if self.item_at(x, y).is_none() {
+                self.ground_items.insert((x, y), kind);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn stash_or_drop_item(&mut self, item: InventoryItem) {
+        if self.add_item_to_inventory(item.clone()) {
+            return;
+        }
+        if self.place_ground_item_near_player(item.kind) {
+            self.push_log(format!("Dropped {} to ground (inventory full)", item.display_name()));
+        } else {
+            self.push_log(format!("Lost {} (no space)", item.display_name()));
+        }
+    }
+
     fn inventory_full(&self) -> bool {
         self.inventory.len() >= MAX_INVENTORY
     }
@@ -628,10 +898,7 @@ impl Game {
                 return;
             }
             self.ground_items.remove(&key);
-            self.inventory.push(InventoryItem {
-                kind: item,
-                custom_name: None,
-            });
+            let _ = self.add_item_kind_to_inventory(item);
             self.push_log(format!(
                 "Picked up {} ({}/{})",
                 item.name(),
@@ -646,9 +913,10 @@ impl Game {
             self.push_log("No usable item");
             return false;
         }
-        let item = self.inventory.remove(idx);
-        match item.kind {
+        let kind = self.inventory[idx].kind;
+        match kind {
             Item::Potion => {
+                let item = self.inventory.remove(idx);
                 let before = self.player_hp;
                 self.player_hp = (self.player_hp + POTION_HEAL).min(self.player_max_hp);
                 let healed = self.player_hp - before;
@@ -666,12 +934,27 @@ impl Game {
                 true
             }
             Item::Wood => {
-                self.push_log(format!("Used {} (nothing happened)", item.display_name()));
+                self.push_log("This item cannot be used directly");
                 false
             }
             Item::Stone => {
-                self.push_log(format!("Used {} (nothing happened)", item.display_name()));
+                self.push_log("This item cannot be used directly");
                 false
+            }
+            Item::StringFiber => {
+                self.push_log("This item cannot be used directly");
+                false
+            }
+            Item::StoneAxe => {
+                let item = self.inventory.remove(idx);
+                let old = self.equipped_tool.replace(item);
+                if let Some(prev) = old {
+                    self.stash_or_drop_item(prev);
+                    self.push_log("Equipped Stone Axe (swapped previous tool)");
+                } else {
+                    self.push_log("Equipped Stone Axe");
+                }
+                true
             }
         }
     }
@@ -964,6 +1247,14 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
+        UiMode::Crafting {
+            cursor,
+            selected_inv,
+            focus,
+            grid,
+        } => {
+            render_crafting_modal(frame, game, *cursor, *selected_inv, *focus, grid);
+        }
     }
 }
 
@@ -1046,11 +1337,18 @@ fn build_status_lines(game: &Game, esc_hold_count: u8) -> Vec<Line<'static>> {
         format!("Hold ESC to quit ({esc_hold_count}/{ESC_HOLD_STEPS})")
     };
 
+    let equipped = game
+        .equipped_tool
+        .as_ref()
+        .map(InventoryItem::display_name)
+        .unwrap_or_else(|| "(none)".to_string());
+
     vec![
         Line::from(format!("HP: {}/{}", game.player_hp.max(0), game.player_max_hp)),
         Line::from(format!("Turn: {}", game.turn)),
         Line::from(format!("Enemies: {}", game.enemies.len())),
         Line::from(format!("Items: {}/{}", game.inventory_len(), MAX_INVENTORY)),
+        Line::from(format!("Equipped: {}", equipped)),
         Line::from(format!(
             "Pos: ({}, {})",
             game.player.x, game.player.y
@@ -1064,36 +1362,59 @@ fn build_status_lines(game: &Game, esc_hold_count: u8) -> Vec<Line<'static>> {
         Line::from("Shift+Move: Face only"),
         Line::from("F       : Attack"),
         Line::from("I       : Inventory"),
+        Line::from("Tab     : Crafting"),
         Line::from(".       : Wait"),
         Line::from(esc_line),
     ]
 }
 
 fn build_legend_lines() -> Vec<Line<'static>> {
-    vec![
-        Line::from("@ : Player"),
-        Line::from("E : Enemy"),
-        Line::from("! : Potion"),
-        Line::from("w : Wood item"),
-        Line::from("s : Stone item"),
-        Line::from("v : Abyss (blocked)"),
-        Line::from("~ : Deep water (blocked)"),
-        Line::from(", : Shallow water (blocked)"),
-        Line::from(". : Sand"),
-        Line::from("\" : Grass"),
-        Line::from("T : Forest"),
-        Line::from("^ : Mountain (blocked)"),
-        Line::from("o : Rock (blocked)"),
-        Line::from("# : Wall (blocked)"),
-    ]
+    let mut lines = vec![Line::from("@ : Player"), Line::from("E : Enemy")];
+    for item in [
+        Item::Potion,
+        Item::Wood,
+        Item::Stone,
+        Item::StringFiber,
+        Item::StoneAxe,
+    ] {
+        lines.push(Line::from(format!(
+            "{} : {}",
+            item.glyph(),
+            item_meta(item).legend
+        )));
+    }
+    for tile in [
+        Tile::Abyss,
+        Tile::DeepWater,
+        Tile::ShallowWater,
+        Tile::Sand,
+        Tile::Grass,
+        Tile::Forest,
+        Tile::Mountain,
+        Tile::Rock,
+        Tile::Wall,
+    ] {
+        lines.push(Line::from(format!(
+            "{} : {}",
+            tile.glyph(),
+            tile_meta(tile).legend
+        )));
+    }
+    lines
 }
 
-fn destructible_info(tile: Tile) -> Option<(u8, Item, Tile, &'static str)> {
-    match tile {
-        Tile::Forest => Some((2, Item::Wood, Tile::Grass, "Tree")),
-        Tile::Rock => Some((3, Item::Stone, Tile::Sand, "Rock")),
-        _ => None,
-    }
+fn destructible_info(tile: Tile) -> Option<(u8, Option<Item>, u8, Tile, &'static str)> {
+    let meta = tile_meta(tile);
+    let hits = meta.harvest_hits?;
+    let replace = meta.harvest_replace?;
+    let label = meta.harvest_label.as_deref().unwrap_or(meta.legend.as_str());
+    Some((
+        hits,
+        meta.harvest_drop,
+        meta.harvest_drop_chance,
+        replace,
+        label,
+    ))
 }
 
 fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
@@ -1119,13 +1440,21 @@ fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
         return lines;
     }
     for (idx, item) in game.inventory.iter().enumerate() {
-        let marker = if idx == selected { ">" } else { " " };
-        lines.push(Line::from(format!(
-            "{} [{}] {}",
-            marker,
-            idx + 1,
-            item.display_name()
-        )));
+        let marker_style = if idx == selected {
+            Style::default().fg(Color::Yellow).bold()
+        } else {
+            Style::default()
+        };
+        lines.push(Line::from(vec![
+            Span::styled(if idx == selected { ">" } else { " " }, marker_style),
+            Span::raw(" "),
+            Span::styled(
+                item.kind.glyph().to_string(),
+                Style::default().fg(item.kind.color()).bold(),
+            ),
+            Span::raw(" "),
+            Span::raw(item.display_name()),
+        ]));
     }
     lines
 }
@@ -1156,6 +1485,123 @@ fn build_rename_lines(game: &Game, selected: usize, input: &str) -> Vec<Line<'st
         Line::raw(""),
         Line::from(format!("> {}", input)),
     ]
+}
+
+fn render_crafting_modal(
+    frame: &mut Frame,
+    game: &Game,
+    cursor: usize,
+    selected_inv: usize,
+    focus: CraftFocus,
+    grid: &[Option<InventoryItem>; 9],
+) {
+    let area = centered_rect(70, 70, frame.area());
+    frame.render_widget(Clear, area);
+    let container = Block::default().borders(Borders::ALL).title("Crafting (3x3)");
+    let inner = container.inner(area);
+    frame.render_widget(container, area);
+
+    let sub = Layout::vertical([
+        Constraint::Length(2),
+        Constraint::Length(5),
+        Constraint::Length(1),
+        Constraint::Length(3),
+        Constraint::Length(2),
+        Constraint::Min(1),
+    ])
+    .split(inner);
+
+    let instructions = Paragraph::new(vec![
+        Line::from("Grid: move + Enter to choose item | Inventory: choose + Enter to place"),
+        Line::from("X craft, Backspace remove from cell, Esc/Tab close"),
+    ]);
+    frame.render_widget(instructions, sub[0]);
+
+    let mut grid_lines: Vec<Line<'static>> = Vec::new();
+    for row in 0..3 {
+        let mut spans: Vec<Span<'static>> = Vec::new();
+        for col in 0..3 {
+            let idx = row * 3 + col;
+            let selected = idx == cursor;
+            let (glyph, color) = match &grid[idx] {
+                Some(item) => (item.kind.glyph(), item.kind.color()),
+                None => ('·', Color::DarkGray),
+            };
+            let border_color = if selected {
+                if focus == CraftFocus::Grid {
+                    Color::Yellow
+                } else {
+                    Color::DarkGray
+                }
+            } else {
+                Color::DarkGray
+            };
+            spans.push(Span::styled("[", Style::default().fg(border_color)));
+            spans.push(Span::styled(
+                glyph.to_string(),
+                Style::default().fg(color).bold(),
+            ));
+            spans.push(Span::styled("]", Style::default().fg(border_color)));
+            spans.push(Span::raw(" "));
+        }
+        grid_lines.push(Line::from(spans));
+    }
+    frame.render_widget(Paragraph::new(grid_lines), sub[1]);
+
+    frame.render_widget(Paragraph::new(Line::from("Inventory:")), sub[2]);
+
+    let mut inv_spans: Vec<Span<'static>> = Vec::new();
+    if game.inventory.is_empty() {
+        inv_spans.push(Span::raw("(empty)"));
+    } else {
+        for (idx, item) in game.inventory.iter().enumerate() {
+            let selected = idx == selected_inv;
+            let border_color = if selected {
+                if focus == CraftFocus::Inventory {
+                    Color::Yellow
+                } else {
+                    Color::DarkGray
+                }
+            } else {
+                Color::DarkGray
+            };
+            inv_spans.push(Span::styled("[", Style::default().fg(border_color)));
+            inv_spans.push(Span::styled(
+                item.kind.glyph().to_string(),
+                Style::default().fg(item.kind.color()).bold(),
+            ));
+            inv_spans.push(Span::styled("]", Style::default().fg(border_color)));
+            inv_spans.push(Span::raw(" "));
+        }
+    }
+    frame.render_widget(Paragraph::new(Line::from(inv_spans)), sub[3]);
+
+    let selected_name = game
+        .inventory
+        .get(selected_inv)
+        .map(InventoryItem::display_name)
+        .unwrap_or_else(|| "(none)".to_string());
+    let result_text = match find_recipe(grid) {
+        Some(recipe) => format!("Result: {}", recipe.label),
+        None => "Result: (no recipe)".to_string(),
+    };
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(format!("Selected: {}", selected_name)),
+            Line::from(result_text),
+        ]),
+        sub[4],
+    );
+}
+
+fn find_recipe(grid: &[Option<InventoryItem>; 9]) -> Option<&'static RecipeDef> {
+    let kinds: [Option<Item>; 9] = std::array::from_fn(|i| grid[i].as_ref().map(|it| it.kind));
+    for recipe in &defs().recipes {
+        if kinds == recipe.inputs {
+            return Some(recipe);
+        }
+    }
+    None
 }
 
 fn fbm_noise01(
@@ -1208,6 +1654,72 @@ fn movement_delta(code: KeyCode) -> Option<(i32, i32)> {
     }
 }
 
+fn move_cursor_3x3(cursor: usize, dx: i32, dy: i32) -> usize {
+    let x = (cursor % 3) as i32;
+    let y = (cursor / 3) as i32;
+    let nx = (x + dx).clamp(0, 2);
+    let ny = (y + dy).clamp(0, 2);
+    (ny * 3 + nx) as usize
+}
+
+fn close_crafting_mode(game: &mut Game, grid: &mut [Option<InventoryItem>; 9]) {
+    for slot in grid.iter_mut() {
+        if let Some(item) = slot.take() {
+            game.stash_or_drop_item(item);
+        }
+    }
+}
+
+fn execute_crafting(game: &mut Game, grid: &mut [Option<InventoryItem>; 9]) -> bool {
+    let Some(recipe) = find_recipe(grid) else {
+        game.push_log("No matching recipe");
+        return false;
+    };
+    let result = recipe.result;
+
+    for slot in grid.iter_mut() {
+        *slot = None;
+    }
+
+    if game.add_item_kind_to_inventory(result) {
+        game.push_log(format!("Crafted {}", recipe.label));
+    } else if game.place_ground_item_near_player(result) {
+        game.push_log(format!(
+            "Crafted {}, but inventory full so it dropped nearby",
+            recipe.label
+        ));
+    } else {
+        game.push_log(format!("Crafted {} but it was lost", recipe.label));
+    }
+    true
+}
+
+fn place_inventory_item_into_grid(
+    game: &mut Game,
+    grid: &mut [Option<InventoryItem>; 9],
+    cursor: usize,
+    selected_inv: &mut usize,
+) {
+    let inv_len = game.inventory_len();
+    let selected = *selected_inv;
+    if inv_len > 0 && selected < inv_len {
+        let picked = game.inventory.remove(selected);
+        let prev = grid[cursor].take();
+        grid[cursor] = Some(picked);
+        if let Some(prev_item) = prev {
+            game.stash_or_drop_item(prev_item);
+        }
+        let new_len = game.inventory_len();
+        if new_len == 0 {
+            *selected_inv = 0;
+        } else if *selected_inv >= new_len {
+            *selected_inv = new_len - 1;
+        }
+    } else {
+        game.push_log("No inventory item selected");
+    }
+}
+
 fn run() -> io::Result<()> {
     let _guard = TerminalGuard::new()?;
     let backend = ratatui::backend::CrosstermBackend::new(io::stdout());
@@ -1253,6 +1765,15 @@ fn run() -> io::Result<()> {
 
                     if matches!(key.code, KeyCode::Char('i') | KeyCode::Char('I')) {
                         ui_mode = UiMode::Inventory { selected: 0 };
+                        continue;
+                    }
+                    if key.code == KeyCode::Tab {
+                        ui_mode = UiMode::Crafting {
+                            cursor: 0,
+                            selected_inv: 0,
+                            focus: CraftFocus::Grid,
+                            grid: std::array::from_fn(|_| None),
+                        };
                         continue;
                     }
 
@@ -1425,6 +1946,136 @@ fn run() -> io::Result<()> {
                         KeyCode::Char(ch) => {
                             if !ch.is_control() && input.len() < 24 {
                                 input.push(ch);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                UiMode::Crafting {
+                    cursor,
+                    selected_inv,
+                    focus,
+                    grid,
+                } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    let inv_len = game.inventory_len();
+                    if inv_len == 0 {
+                        *selected_inv = 0;
+                    } else if *selected_inv >= inv_len {
+                        *selected_inv = inv_len - 1;
+                    }
+
+                    match key.code {
+                        KeyCode::Esc | KeyCode::Tab => {
+                            if *focus == CraftFocus::Inventory {
+                                *focus = CraftFocus::Grid;
+                            } else {
+                                close_crafting_mode(&mut game, grid);
+                                ui_mode = UiMode::Normal;
+                            }
+                        }
+                        KeyCode::Up => {
+                            if *focus == CraftFocus::Grid {
+                                *cursor = move_cursor_3x3(*cursor, 0, -1);
+                            }
+                        }
+                        KeyCode::Down => {
+                            if *focus == CraftFocus::Grid {
+                                *cursor = move_cursor_3x3(*cursor, 0, 1);
+                            }
+                        }
+                        KeyCode::Left => {
+                            if *focus == CraftFocus::Grid {
+                                *cursor = move_cursor_3x3(*cursor, -1, 0);
+                            } else if inv_len > 0 {
+                                *selected_inv = selected_inv.saturating_sub(1);
+                            }
+                        }
+                        KeyCode::Right => {
+                            if *focus == CraftFocus::Grid {
+                                *cursor = move_cursor_3x3(*cursor, 1, 0);
+                            } else if inv_len > 0 {
+                                *selected_inv = (*selected_inv + 1).min(inv_len - 1);
+                            }
+                        }
+                        KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
+                            'w' => {
+                                if *focus == CraftFocus::Grid {
+                                    *cursor = move_cursor_3x3(*cursor, 0, -1);
+                                }
+                            }
+                            's' => {
+                                if *focus == CraftFocus::Grid {
+                                    *cursor = move_cursor_3x3(*cursor, 0, 1);
+                                }
+                            }
+                            'a' => {
+                                if *focus == CraftFocus::Grid {
+                                    *cursor = move_cursor_3x3(*cursor, -1, 0);
+                                } else if inv_len > 0 {
+                                    *selected_inv = selected_inv.saturating_sub(1);
+                                }
+                            }
+                            'd' => {
+                                if *focus == CraftFocus::Grid {
+                                    *cursor = move_cursor_3x3(*cursor, 1, 0);
+                                } else if inv_len > 0 {
+                                    *selected_inv = (*selected_inv + 1).min(inv_len - 1);
+                                }
+                            }
+                            'x' => {
+                                if *focus == CraftFocus::Grid && execute_crafting(&mut game, grid) {
+                                    game.consume_non_attack_turn();
+                                    if game.player_hp <= 0 {
+                                        break;
+                                    }
+                                }
+                            }
+                            ' ' => {
+                                if *focus == CraftFocus::Grid {
+                                    let idx = *cursor;
+                                    if let Some(item) = grid[idx].take() {
+                                        game.stash_or_drop_item(item);
+                                    } else if inv_len > 0 {
+                                        *focus = CraftFocus::Inventory;
+                                    } else {
+                                        game.push_log("No inventory item to place");
+                                    }
+                                } else {
+                                    place_inventory_item_into_grid(
+                                        &mut game,
+                                        grid,
+                                        *cursor,
+                                        selected_inv,
+                                    );
+                                    *focus = CraftFocus::Grid;
+                                }
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Enter => {
+                            if *focus == CraftFocus::Grid {
+                                let idx = *cursor;
+                                if let Some(item) = grid[idx].take() {
+                                    game.stash_or_drop_item(item);
+                                } else if inv_len > 0 {
+                                    *focus = CraftFocus::Inventory;
+                                } else {
+                                    game.push_log("No inventory item to place");
+                                }
+                            } else {
+                                place_inventory_item_into_grid(&mut game, grid, *cursor, selected_inv);
+                                *focus = CraftFocus::Grid;
+                            }
+                        }
+                        KeyCode::Backspace | KeyCode::Delete => {
+                            if *focus == CraftFocus::Grid {
+                                let idx = *cursor;
+                                if let Some(item) = grid[idx].take() {
+                                    game.stash_or_drop_item(item);
+                                }
                             }
                         }
                         _ => {}

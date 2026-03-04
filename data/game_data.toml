@@ -1,0 +1,129 @@
+[[tiles]]
+id = "abyss"
+glyph = "v"
+color = 16
+shadow_color = 16
+walkable = false
+legend = "Abyss (blocked)"
+
+[[tiles]]
+id = "deep_water"
+glyph = "~"
+color = 18
+shadow_color = 17
+walkable = false
+legend = "Deep water (blocked)"
+
+[[tiles]]
+id = "shallow_water"
+glyph = ","
+color = 25
+shadow_color = 18
+walkable = false
+legend = "Shallow water (blocked)"
+
+[[tiles]]
+id = "sand"
+glyph = "."
+color = 180
+shadow_color = 136
+walkable = true
+legend = "Sand"
+
+[[tiles]]
+id = "grass"
+glyph = "\""
+color = 70
+shadow_color = 22
+walkable = true
+legend = "Grass"
+harvest_hits = 1
+harvest_drop = "string"
+harvest_drop_chance = 20
+harvest_replace = "sand"
+harvest_label = "Grass"
+
+[[tiles]]
+id = "forest"
+glyph = "T"
+color = 28
+shadow_color = 22
+walkable = true
+legend = "Forest"
+harvest_hits = 2
+harvest_drop = "wood"
+harvest_replace = "grass"
+harvest_label = "Tree"
+
+[[tiles]]
+id = "mountain"
+glyph = "^"
+color = 245
+shadow_color = 238
+walkable = false
+legend = "Mountain (blocked)"
+
+[[tiles]]
+id = "rock"
+glyph = "o"
+color = 250
+shadow_color = 239
+walkable = false
+legend = "Rock (blocked)"
+harvest_hits = 3
+harvest_drop = "stone"
+harvest_replace = "sand"
+harvest_label = "Rock"
+
+[[tiles]]
+id = "wall"
+glyph = "#"
+color = 238
+shadow_color = 236
+walkable = false
+legend = "Wall (blocked)"
+
+[[items]]
+id = "potion"
+name = "Potion"
+glyph = "!"
+color = 208
+legend = "Potion"
+
+[[items]]
+id = "wood"
+name = "Wood"
+glyph = "w"
+color = 137
+legend = "Wood item"
+
+[[items]]
+id = "stone"
+name = "Stone"
+glyph = "s"
+color = 245
+legend = "Stone item"
+
+[[items]]
+id = "string"
+name = "String"
+glyph = "="
+color = 223
+legend = "String item"
+
+[[items]]
+id = "stone_axe"
+name = "Stone Axe"
+glyph = "a"
+color = 250
+legend = "Stone Axe"
+
+[[recipes]]
+result = "stone_axe"
+label = "Stone Axe"
+inputs = ["stone", "stone", "", "stone", "wood", "", "", "string", ""]
+
+[[recipes]]
+result = "stone_axe"
+label = "Stone Axe (mirrored)"
+inputs = ["", "stone", "stone", "", "wood", "stone", "", "string", ""]
