@@ -35,7 +35,6 @@ struct ItemDefRaw {
     name: String,
     glyph: String,
     color: u8,
-    legend: String,
     status: String,
     description: String,
 }
@@ -79,7 +78,6 @@ pub(crate) struct ItemDef {
     pub(crate) name: String,
     pub(crate) glyph: char,
     pub(crate) color: Color,
-    pub(crate) legend: String,
     pub(crate) status: String,
     pub(crate) description: String,
 }
@@ -161,7 +159,6 @@ fn load_defs() -> GameDefs {
                 name: it.name,
                 glyph: parse_single_char(&it.glyph, "item", &it.id),
                 color: Color::Indexed(it.color),
-                legend: it.legend,
                 status: it.status,
                 description: it.description,
             },

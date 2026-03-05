@@ -4,7 +4,7 @@ mod game;
 mod save;
 mod text;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io;
 use std::path::Path;
@@ -16,7 +16,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use defs::{Faction, RecipeDef, creature_meta, defs, item_meta, tile_meta};
+use defs::{RecipeDef, creature_meta, defs, item_meta, tile_meta};
 use game::{Action, Game};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
@@ -31,6 +31,7 @@ const ROCK_THRESHOLD: f64 = 0.63;
 const WALL_THRESHOLD: f64 = 0.80;
 const ESC_HOLD_STEPS: u8 = 8;
 const POTION_HEAL: i32 = 6;
+const TURN_REGEN_INTERVAL: u64 = 8;
 const MAX_INVENTORY: usize = 10;
 const SAVE_FILE: &str = "savegame.json";
 
@@ -45,6 +46,7 @@ enum Tile {
     Mountain,
     Rock,
     Wall,
+    StairsDown,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +54,12 @@ enum Item {
     Potion,
     Herb,
     Elixir,
+    Food,
+    Bread,
+    Torch,
+    FlameScroll,
+    BlinkScroll,
+    NovaScroll,
     Wood,
     Stone,
     IronIngot,
@@ -60,6 +68,8 @@ enum Item {
     StoneAxe,
     IronSword,
     IronPickaxe,
+    WoodenShield,
+    LuckyCharm,
 }
 
 impl Item {
@@ -68,6 +78,12 @@ impl Item {
             Self::Potion => "potion",
             Self::Herb => "herb",
             Self::Elixir => "elixir",
+            Self::Food => "food",
+            Self::Bread => "bread",
+            Self::Torch => "torch",
+            Self::FlameScroll => "flame_scroll",
+            Self::BlinkScroll => "blink_scroll",
+            Self::NovaScroll => "nova_scroll",
             Self::Wood => "wood",
             Self::Stone => "stone",
             Self::IronIngot => "iron_ingot",
@@ -76,6 +92,8 @@ impl Item {
             Self::StoneAxe => "stone_axe",
             Self::IronSword => "iron_sword",
             Self::IronPickaxe => "iron_pickaxe",
+            Self::WoodenShield => "wooden_shield",
+            Self::LuckyCharm => "lucky_charm",
         }
     }
 
@@ -84,6 +102,12 @@ impl Item {
             "potion" => Some(Self::Potion),
             "herb" => Some(Self::Herb),
             "elixir" => Some(Self::Elixir),
+            "food" => Some(Self::Food),
+            "bread" => Some(Self::Bread),
+            "torch" => Some(Self::Torch),
+            "flame_scroll" => Some(Self::FlameScroll),
+            "blink_scroll" => Some(Self::BlinkScroll),
+            "nova_scroll" => Some(Self::NovaScroll),
             "wood" => Some(Self::Wood),
             "stone" => Some(Self::Stone),
             "iron_ingot" => Some(Self::IronIngot),
@@ -92,6 +116,8 @@ impl Item {
             "stone_axe" => Some(Self::StoneAxe),
             "iron_sword" => Some(Self::IronSword),
             "iron_pickaxe" => Some(Self::IronPickaxe),
+            "wooden_shield" => Some(Self::WoodenShield),
+            "lucky_charm" => Some(Self::LuckyCharm),
             _ => None,
         }
     }
@@ -104,22 +130,70 @@ impl Item {
         item_meta(self).color
     }
 
-    fn name(self) -> &'static str {
-        &item_meta(self).name
+}
+
+fn tr_or_fallback(key: String, fallback: &str) -> String {
+    let val = tr(&key);
+    if val == key {
+        fallback.to_string()
+    } else {
+        val.to_string()
     }
+}
+
+pub(crate) fn localized_item_name(item: Item) -> String {
+    tr_or_fallback(
+        format!("item.name.{}", item.key()),
+        &item_meta(item).name,
+    )
+}
+
+fn localized_item_status(item: Item) -> String {
+    tr_or_fallback(
+        format!("item.status.{}", item.key()),
+        &item_meta(item).status,
+    )
+}
+
+fn localized_item_description(item: Item) -> String {
+    tr_or_fallback(
+        format!("item.description.{}", item.key()),
+        &item_meta(item).description,
+    )
+}
+
+pub(crate) fn localized_creature_name(id: &str) -> String {
+    tr_or_fallback(
+        format!("creature.name.{id}"),
+        &creature_meta(id).name,
+    )
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct InventoryItem {
     kind: Item,
     custom_name: Option<String>,
+    #[serde(default = "default_inventory_qty")]
+    qty: u16,
+}
+
+fn default_inventory_qty() -> u16 {
+    1
 }
 
 impl InventoryItem {
     fn display_name(&self) -> String {
         match &self.custom_name {
             Some(name) if !name.is_empty() => name.clone(),
-            _ => self.kind.name().to_string(),
+            _ => localized_item_name(self.kind),
+        }
+    }
+
+    fn display_name_with_qty(&self) -> String {
+        if self.qty > 1 {
+            format!("{} x{}", self.display_name(), self.qty)
+        } else {
+            self.display_name()
         }
     }
 }
@@ -136,6 +210,7 @@ impl Tile {
             Self::Mountain => "mountain",
             Self::Rock => "rock",
             Self::Wall => "wall",
+            Self::StairsDown => "stairs_down",
         }
     }
 
@@ -150,6 +225,7 @@ impl Tile {
             "mountain" => Some(Self::Mountain),
             "rock" => Some(Self::Rock),
             "wall" => Some(Self::Wall),
+            "stairs_down" => Some(Self::StairsDown),
             _ => None,
         }
     }
@@ -185,68 +261,6 @@ impl Tile {
 
 fn shadow_color(tile: Tile) -> Color {
     tile_meta(tile).shadow_color
-}
-
-fn biome_tint_color(base: Color, biome: u8, bright: bool) -> Color {
-    let bx = biome % 4;
-    let by = biome / 4;
-    if !bright {
-        return match (bx, by) {
-            (0, 0) | (1, 0) | (0, 1) => Color::Indexed(18),
-            (2, 1) | (1, 2) | (2, 2) => Color::Indexed(22),
-            (3, 2) | (2, 3) | (3, 3) => Color::Indexed(240),
-            _ => Color::Indexed(94),
-        };
-    }
-
-    match (bx, by) {
-        // wet / lowland
-        (0, 0) | (1, 0) | (0, 1) => match base {
-            Color::Indexed(70) => Color::Indexed(78),
-            Color::Indexed(28) => Color::Indexed(30),
-            _ => base,
-        },
-        // lush
-        (2, 1) | (1, 2) | (2, 2) => match base {
-            Color::Indexed(70) => Color::Indexed(82),
-            Color::Indexed(28) => Color::Indexed(34),
-            _ => base,
-        },
-        // rocky / high
-        (3, 2) | (2, 3) | (3, 3) => match base {
-            Color::Indexed(70) => Color::Indexed(143),
-            Color::Indexed(28) => Color::Indexed(101),
-            Color::Indexed(245) => Color::Indexed(252),
-            _ => base,
-        },
-        _ => base,
-    }
-}
-
-fn biome_tile_glyph(tile: Tile, biome: u8) -> char {
-    let bx = biome % 4;
-    let by = biome / 4;
-    match tile {
-        Tile::Grass => match (bx, by) {
-            (0, 0) | (1, 0) => ',',
-            (3, 2) | (2, 3) | (3, 3) => ';',
-            _ => '"',
-        },
-        Tile::Forest => match (bx, by) {
-            (0, 0) | (1, 0) => 'Y',
-            (3, 2) | (2, 3) | (3, 3) => 'A',
-            _ => 'T',
-        },
-        Tile::Sand => match (bx, by) {
-            (0, 0) | (1, 0) => ':',
-            _ => '.',
-        },
-        Tile::Rock => match (bx, by) {
-            (3, 2) | (2, 3) | (3, 3) => 'O',
-            _ => 'o',
-        },
-        _ => tile.glyph(),
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -301,19 +315,6 @@ impl Facing {
             Self::NW => tr("dir.nw"),
         }
     }
-
-    fn glyph(self) -> char {
-        match self {
-            Self::N => '^',
-            Self::NE => '/',
-            Self::E => '>',
-            Self::SE => '\\',
-            Self::S => 'v',
-            Self::SW => '/',
-            Self::W => '<',
-            Self::NW => '\\',
-        }
-    }
 }
 
 fn is_bright_by_facing(facing: Facing, dx: i32, dy: i32) -> bool {
@@ -359,6 +360,8 @@ const ITEM_MENU_ACTIONS: [ItemMenuAction; 4] = [
 #[derive(Clone, Debug)]
 enum UiMode {
     Normal,
+    DebugConsole { input: String },
+    StairsPrompt { selected_action: StairsAction },
     MainMenu { selected: usize },
     Inventory { selected: usize },
     ItemMenu { selected: usize, action_idx: usize },
@@ -371,12 +374,29 @@ enum UiMode {
         focus: CraftFocus,
         grid: [Option<InventoryItem>; 9],
     },
+    Dead {
+        scroll: usize,
+        selected_action: DeadAction,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CraftFocus {
     Grid,
     Inventory,
+    CraftButton,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DeadAction {
+    Restart,
+    Exit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StairsAction {
+    Descend,
+    Stay,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -428,42 +448,87 @@ impl Drop for TerminalGuard {
 fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &UiMode) {
     let areas = Layout::horizontal([Constraint::Percentage(65), Constraint::Percentage(35)])
         .split(frame.area());
-    let side_areas = Layout::vertical([
-        Constraint::Length(14),
-        Constraint::Min(10),
-        Constraint::Length(5),
-    ])
-    .split(areas[1]);
+    let side_areas = Layout::vertical([Constraint::Length(16), Constraint::Min(10)]).split(areas[1]);
+    let left_areas = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(areas[0]);
 
-    let map_block = Block::default().borders(Borders::ALL).title(tr("title.map"));
-    let map_inner = map_block.inner(areas[0]);
+    let map_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ui_chrome_color(game)))
+        .title(tr("title.map"));
+    let map_inner = map_block.inner(left_areas[0]);
     let map_lines = build_map_lines(game, map_inner.width, map_inner.height);
     let map_widget = Paragraph::new(map_lines).block(map_block);
-    frame.render_widget(map_widget, areas[0]);
+    frame.render_widget(map_widget, left_areas[0]);
+
+    let quick_widget = Paragraph::new(build_quickbar_line(game))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ui_chrome_color(game)))
+                .title(tr("title.quick")),
+        )
+        .wrap(ratatui::widgets::Wrap { trim: true });
+    frame.render_widget(quick_widget, left_areas[1]);
 
     let status_widget = Paragraph::new(build_status_lines(game, esc_hold_count))
-        .block(Block::default().borders(Borders::ALL).title(tr("title.status")))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ui_chrome_color(game)))
+                .title(tr("title.status")),
+        )
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(status_widget, side_areas[0]);
 
-    let legend_widget = Paragraph::new(build_legend_lines())
-        .block(Block::default().borders(Borders::ALL).title(tr("title.legend")))
-        .wrap(ratatui::widgets::Wrap { trim: false });
-    frame.render_widget(legend_widget, side_areas[1]);
-
-    let log_height = side_areas[2].height.saturating_sub(2) as usize;
+    let log_height = side_areas[1].height.saturating_sub(2) as usize;
     let log_widget = Paragraph::new(build_log_lines(game, log_height))
-        .block(Block::default().borders(Borders::ALL).title(tr("title.log")))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ui_chrome_color(game)))
+                .title(tr("title.log")),
+        )
         .wrap(ratatui::widgets::Wrap { trim: false });
-    frame.render_widget(log_widget, side_areas[2]);
+    frame.render_widget(log_widget, side_areas[1]);
 
     match ui_mode {
         UiMode::Normal => {}
+        UiMode::DebugConsole { input } => {
+            let area = centered_rect(70, 28, frame.area());
+            frame.render_widget(Clear, area);
+            let widget = Paragraph::new(build_debug_console_lines(input))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.debug")),
+                )
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(widget, area);
+        }
+        UiMode::StairsPrompt { selected_action } => {
+            let area = centered_rect(42, 24, frame.area());
+            frame.render_widget(Clear, area);
+            let widget = Paragraph::new(build_stairs_prompt_lines(*selected_action))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.stairs")),
+                )
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(widget, area);
+        }
         UiMode::MainMenu { selected } => {
             let area = centered_rect(40, 45, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_main_menu_lines(*selected))
-                .block(Block::default().borders(Borders::ALL).title(tr("title.menu")))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.menu")),
+                )
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -474,7 +539,12 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(50, 40, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_settings_lines(*selected))
-                .block(Block::default().borders(Borders::ALL).title(tr("title.settings")))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.settings")),
+                )
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -482,7 +552,12 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(55, 55, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_hints_lines())
-                .block(Block::default().borders(Borders::ALL).title(tr("title.hints")))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.hints")),
+                )
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -493,7 +568,12 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(40, 40, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_item_menu_lines(game, *selected, *action_idx))
-                .block(Block::default().borders(Borders::ALL).title(tr("title.item_menu")))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.item_menu")),
+                )
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -501,7 +581,12 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             let area = centered_rect(55, 30, frame.area());
             frame.render_widget(Clear, area);
             let widget = Paragraph::new(build_rename_lines(game, *selected, input))
-                .block(Block::default().borders(Borders::ALL).title(tr("title.rename_item")))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(ui_chrome_color(game)))
+                        .title(tr("title.rename_item")),
+                )
                 .wrap(ratatui::widgets::Wrap { trim: false });
             frame.render_widget(widget, area);
         }
@@ -512,6 +597,67 @@ fn render_ui(frame: &mut Frame, game: &mut Game, esc_hold_count: u8, ui_mode: &U
             grid,
         } => {
             render_crafting_modal(frame, game, *cursor, *selected_inv, *focus, grid);
+        }
+        UiMode::Dead {
+            scroll,
+            selected_action,
+        } => {
+            let area = centered_rect(75, 75, frame.area());
+            frame.render_widget(Clear, area);
+            let container = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(ui_chrome_color(game)))
+                .title(tr("title.death"));
+            let inner = container.inner(area);
+            frame.render_widget(container, area);
+
+            let panes =
+                Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
+                    .split(inner);
+
+            let summary = Paragraph::new(build_dead_summary_lines(game))
+                .block(
+                    Block::default()
+                        .borders(Borders::RIGHT)
+                        .border_style(Style::default().fg(ui_chrome_color(game))),
+                )
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(summary, panes[0]);
+
+            let restart_style = if *selected_action == DeadAction::Restart {
+                Style::default().fg(Color::Yellow).bold()
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            let exit_style = if *selected_action == DeadAction::Exit {
+                Style::default().fg(Color::Yellow).bold()
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            let button_line = Line::from(vec![
+                Span::styled("[ ", restart_style),
+                Span::styled(tr("death.btn_restart"), restart_style),
+                Span::styled(" ]  ", restart_style),
+                Span::styled("[ ", exit_style),
+                Span::styled(tr("death.btn_exit"), exit_style),
+                Span::styled(" ]", exit_style),
+            ]);
+            let summary_inner = panes[0].inner(Margin {
+                horizontal: 1,
+                vertical: 1,
+            });
+            let button_y = summary_inner.height.saturating_sub(1);
+            let button_area = Rect {
+                x: summary_inner.x,
+                y: summary_inner.y + button_y,
+                width: summary_inner.width,
+                height: 1,
+            };
+            frame.render_widget(Paragraph::new(button_line), button_area);
+
+            let logs = Paragraph::new(build_dead_log_lines(game, *scroll))
+                .wrap(ratatui::widgets::Wrap { trim: false });
+            frame.render_widget(logs, panes[1]);
         }
     }
 }
@@ -532,6 +678,22 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     horizontal[1]
 }
 
+fn is_hp_critical(game: &Game) -> bool {
+    game.player_hp.max(0) * 10 <= game.player_max_hp.max(1)
+}
+
+fn ui_chrome_color(game: &Game) -> Color {
+    if is_hp_critical(game) {
+        Color::Red
+    } else {
+        Color::White
+    }
+}
+
+fn is_hunger_critical(game: &Game) -> bool {
+    game.player_hunger.max(0) * 10 <= game.player_max_hunger.max(1)
+}
+
 fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static>> {
     let cells_w = (width.saturating_add(1)) / 2;
     let cells_h = (height.saturating_add(1)) / 2;
@@ -542,7 +704,16 @@ fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static
     let center_y = (cells_h / 2) as i32;
 
     let mut effect_gaps: HashMap<(u16, u16), char> = HashMap::new();
+    let mut effect_targets: HashSet<(i32, i32)> = HashSet::new();
+    let mut effect_cells: HashMap<(i32, i32), (char, Color, bool)> = HashMap::new();
+    for cell in game.active_effect_cells() {
+        effect_cells.insert((cell.x, cell.y), (cell.glyph, cell.color, cell.bold));
+    }
     for fx in &game.attack_effects {
+        if fx.delay_frames > 0 {
+            continue;
+        }
+        effect_targets.insert((fx.to.x, fx.to.y));
         let from_dx = fx.from.x - game.player.x;
         let from_dy = fx.from.y - game.player.y;
         let to_dx = fx.to.x - game.player.x;
@@ -593,11 +764,24 @@ fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static
             let dy = sy as i32 - center_y;
             let world_x = game.player.x + dx;
             let world_y = game.player.y + dy;
+            let lit_by_torch = game.is_lit_by_torch(world_x, world_y);
+            let in_vision = dx * dx + dy * dy <= VISION_RADIUS * VISION_RADIUS;
             let bright = is_bright_by_facing(game.facing, dx, dy);
             let dim_mod = if bright { Modifier::empty() } else { Modifier::DIM };
 
-            let span = if dx * dx + dy * dy > VISION_RADIUS * VISION_RADIUS {
+            let span = if !in_vision && !lit_by_torch {
                 Span::raw(" ")
+            } else if let Some((glyph, color, bold)) = effect_cells.get(&(world_x, world_y)) {
+                let mut style = Style::default().fg(*color).add_modifier(dim_mod);
+                if *bold {
+                    style = style.bold();
+                }
+                Span::styled(glyph.to_string(), style)
+            } else if effect_targets.contains(&(world_x, world_y)) {
+                Span::styled(
+                    "*",
+                    Style::default().fg(Color::Yellow).bold().add_modifier(dim_mod),
+                )
             } else if sx as i32 == center_x && sy as i32 == center_y {
                 Span::styled("@", Style::default().fg(Color::Red).bold())
             } else if let Some((eglyph, ecolor)) = game.enemy_visual_at(world_x, world_y) {
@@ -612,13 +796,22 @@ fn build_map_lines(game: &mut Game, width: u16, height: u16) -> Vec<Line<'static
                     item.glyph().to_string(),
                     Style::default().fg(item_color).add_modifier(dim_mod),
                 )
+            } else if game.has_torch_at(world_x, world_y) {
+                let torch_color = if bright {
+                    Color::Indexed(220)
+                } else {
+                    Color::Indexed(94)
+                };
+                Span::styled("i", Style::default().fg(torch_color).bold().add_modifier(dim_mod))
+            } else if game.has_blood_stain(world_x, world_y) {
+                Span::styled(
+                    "*",
+                    Style::default().fg(Color::Indexed(52)).bold(),
+                )
             } else {
                 let t = game.tile(world_x, world_y);
-                let biome = game.biome_index_at(world_x, world_y);
-                let base_fg = if bright { t.color() } else { shadow_color(t) };
-                let fg = biome_tint_color(base_fg, biome, bright);
-                let glyph = biome_tile_glyph(t, biome);
-                Span::styled(glyph.to_string(), Style::default().fg(fg).add_modifier(dim_mod))
+                let fg = if bright { t.color() } else { shadow_color(t) };
+                Span::styled(t.glyph().to_string(), Style::default().fg(fg).add_modifier(dim_mod))
             };
             spans.push(span);
         }
@@ -641,20 +834,53 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
         )
     };
 
-    let equipped = game
-        .equipped_tool
+    let equipped_sword = game
+        .equipped_sword
         .as_ref()
         .map(InventoryItem::display_name)
         .unwrap_or_else(|| tr("status.none").to_string());
+    let equipped_shield = game
+        .equipped_shield
+        .as_ref()
+        .map(InventoryItem::display_name)
+        .unwrap_or_else(|| tr("status.none").to_string());
+    let equipped_accessory = game
+        .equipped_accessory
+        .as_ref()
+        .map(InventoryItem::display_name)
+        .unwrap_or_else(|| tr("status.none").to_string());
+    let hp_color = if is_hp_critical(game) {
+        Color::Red
+    } else {
+        Color::Green
+    };
 
     vec![
-        Line::from(trf(
-            "status.hp",
-            &[
-                ("hp", game.player_hp.max(0).to_string()),
-                ("max", game.player_max_hp.to_string()),
-            ],
-        )),
+        build_gauge_line(
+            tr("status.hp").replace("{hp}/{max}", ""),
+            game.player_hp.max(0),
+            game.player_max_hp,
+            14,
+            hp_color,
+        ),
+        build_gauge_line(
+            tr("status.mp").replace("{mp}/{max}", ""),
+            game.player_mp.max(0),
+            game.player_max_mp,
+            14,
+            Color::LightBlue,
+        ),
+        build_gauge_line(
+            tr("status.hunger").replace("{v}/{max}", ""),
+            game.player_hunger.max(0),
+            game.player_max_hunger,
+            14,
+            if is_hunger_critical(game) {
+                Color::Yellow
+            } else {
+                Color::White
+            },
+        ),
         Line::from(trf(
             "status.atk_def",
             &[
@@ -662,7 +888,16 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
                 ("def", game.player_defense().to_string()),
             ],
         )),
+        Line::from(trf("status.level", &[("level", game.level.to_string())])),
+        build_gauge_line(
+            tr("status.exp").replace("{exp}/{next}", ""),
+            game.exp as i32,
+            game.next_exp as i32,
+            14,
+            Color::Yellow,
+        ),
         Line::from(trf("status.turn", &[("turn", game.turn.to_string())])),
+        Line::from(trf("status.floor", &[("floor", game.floor.to_string())])),
         Line::from(trf(
             "status.enemies",
             &[("count", game.enemies.len().to_string())],
@@ -674,7 +909,18 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
                 ("max", MAX_INVENTORY.to_string()),
             ],
         )),
-        Line::from(trf("status.equipped", &[("name", equipped)])),
+        Line::from(trf(
+            "status.slot_sword",
+            &[("name", equipped_sword)],
+        )),
+        Line::from(trf(
+            "status.slot_shield",
+            &[("name", equipped_shield)],
+        )),
+        Line::from(trf(
+            "status.slot_accessory",
+            &[("name", equipped_accessory)],
+        )),
         Line::from(trf("status.seed", &[("seed", game.world.seed.to_string())])),
         Line::from(trf(
             "status.pos",
@@ -685,10 +931,7 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
         )),
         Line::from(trf(
             "status.facing",
-            &[
-                ("label", game.facing.label().to_string()),
-                ("glyph", game.facing.glyph().to_string()),
-            ],
+            &[("label", game.facing.label().to_string())],
         )),
         Line::from(trf(
             "status.chunks",
@@ -708,60 +951,54 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
         Line::from(tr("status.ctrl.arrows")),
         Line::from(tr("status.ctrl.face")),
         Line::from(tr("status.ctrl.attack")),
+        Line::from(tr("status.ctrl.num")),
         Line::from(tr("status.ctrl.menu")),
         Line::from(tr("status.ctrl.wait")),
         Line::from(esc_line),
     ]
 }
 
-fn build_legend_lines() -> Vec<Line<'static>> {
-    let player_name = creature_meta("player").name.clone();
-    let mut lines = vec![Line::from(format!("@ : {}", player_name))];
-    let mut creature_ids: Vec<String> = defs()
-        .creatures
-        .keys()
-        .filter(|id| id.as_str() != "player")
-        .cloned()
-        .collect();
-    creature_ids.sort();
-    for id in creature_ids {
-        let c = creature_meta(&id);
-        let faction = match c.faction {
-            Faction::Ally => tr("faction.ally"),
-            Faction::Hostile => tr("faction.hostile"),
-            Faction::Neutral => tr("faction.neutral"),
-        };
-        lines.push(Line::from(format!("{} : {} ({})", c.glyph, c.name, faction)));
+fn build_gauge_line(
+    label: String,
+    current: i32,
+    max: i32,
+    width: usize,
+    fill_color: Color,
+) -> Line<'static> {
+    let max_v = max.max(1);
+    let cur_v = current.clamp(0, max_v);
+    let filled = ((cur_v as i64 * width as i64) + max_v as i64 - 1) / max_v as i64;
+    let filled = filled as usize;
+    let mut spans: Vec<Span<'static>> = Vec::with_capacity(width + 6);
+    spans.push(Span::raw(format!("{} ", label.trim())));
+    spans.push(Span::styled(
+        "╶",
+        if filled > 0 {
+            Style::default().fg(fill_color).bold()
+        } else {
+            Style::default().fg(Color::DarkGray)
+        },
+    ));
+    for i in 0..width {
+        spans.push(Span::styled(
+            "─",
+            if i < filled {
+                Style::default().fg(fill_color).bold()
+            } else {
+                Style::default().fg(Color::DarkGray)
+            },
+        ));
     }
-    let mut item_ids: Vec<String> = defs().items.keys().cloned().collect();
-    item_ids.sort();
-    for id in item_ids {
-        if let Some(item) = Item::from_key(&id) {
-            lines.push(Line::from(format!(
-                "{} : {}",
-                item.glyph(),
-                item_meta(item).legend
-            )));
-        }
-    }
-    for tile in [
-        Tile::Abyss,
-        Tile::DeepWater,
-        Tile::ShallowWater,
-        Tile::Sand,
-        Tile::Grass,
-        Tile::Forest,
-        Tile::Mountain,
-        Tile::Rock,
-        Tile::Wall,
-    ] {
-        lines.push(Line::from(format!(
-            "{} : {}",
-            tile.glyph(),
-            tile_meta(tile).legend
-        )));
-    }
-    lines
+    spans.push(Span::styled(
+        "╴",
+        if filled >= width {
+            Style::default().fg(fill_color).bold()
+        } else {
+            Style::default().fg(Color::DarkGray)
+        },
+    ));
+    spans.push(Span::raw(format!(" {}/{}", cur_v, max_v)));
+    Line::from(spans)
 }
 
 fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
@@ -774,6 +1011,40 @@ fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
         .iter()
         .map(|entry| Line::from(entry.clone()))
         .collect()
+}
+
+fn build_quickbar_line(game: &Game) -> Line<'static> {
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    let max_slots = 10usize;
+    for i in 0..max_slots {
+        let slot_label = if i == 9 {
+            '0'
+        } else {
+            (b'1' + i as u8) as char
+        };
+        if i > 0 {
+            spans.push(Span::raw("  "));
+        }
+        if let Some(item) = game.inventory.get(i) {
+            spans.push(Span::styled(
+                format!("{}:", slot_label),
+                Style::default().fg(Color::DarkGray),
+            ));
+            spans.push(Span::styled(
+                item.kind.glyph().to_string(),
+                Style::default().fg(item.kind.color()).bold(),
+            ));
+            if item.qty > 1 {
+                spans.push(Span::raw(format!("x{}", item.qty)));
+            }
+        } else {
+            spans.push(Span::styled(
+                format!("{}:·", slot_label),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
+    }
+    Line::from(spans)
 }
 
 fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
@@ -806,7 +1077,7 @@ fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
                 Style::default().fg(item.kind.color()).bold(),
             ),
             Span::raw(" "),
-            Span::raw(item.display_name()),
+            Span::raw(item.display_name_with_qty()),
         ]));
     }
     lines
@@ -820,7 +1091,6 @@ fn build_inventory_detail_lines(game: &Game, selected: usize) -> Vec<Line<'stati
             Line::from(tr("inventory.no_selected_help")),
         ];
     };
-    let meta = item_meta(item.kind);
     vec![
         Line::from(vec![
             Span::styled(
@@ -828,14 +1098,17 @@ fn build_inventory_detail_lines(game: &Game, selected: usize) -> Vec<Line<'stati
                 Style::default().fg(item.kind.color()).bold(),
             ),
             Span::raw(" "),
-            Span::styled(item.display_name(), Style::default().bold()),
+            Span::styled(item.display_name_with_qty(), Style::default().bold()),
         ]),
         Line::raw(""),
-        Line::from(trf("inventory.type", &[("type", meta.status.clone())])),
+        Line::from(trf(
+            "inventory.type",
+            &[("type", localized_item_status(item.kind))],
+        )),
         Line::from(trf("inventory.id", &[("id", item.kind.key().to_string())])),
         Line::raw(""),
         Line::from(tr("inventory.description")),
-        Line::from(meta.description.clone()),
+        Line::from(localized_item_description(item.kind)),
     ]
 }
 
@@ -844,13 +1117,18 @@ fn render_inventory_modal(frame: &mut Frame, game: &Game, selected: usize) {
     frame.render_widget(Clear, area);
     let container = Block::default()
         .borders(Borders::ALL)
+        .border_style(Style::default().fg(ui_chrome_color(game)))
         .title(tr("title.inventory"));
     let inner = container.inner(area);
     frame.render_widget(container, area);
 
     let cols = Layout::horizontal([Constraint::Percentage(52), Constraint::Percentage(48)]).split(inner);
     let left = Paragraph::new(build_inventory_lines(game, selected))
-        .block(Block::default().borders(Borders::RIGHT))
+        .block(
+            Block::default()
+                .borders(Borders::RIGHT)
+                .border_style(Style::default().fg(ui_chrome_color(game))),
+        )
         .wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(left, cols[0]);
 
@@ -873,6 +1151,178 @@ fn build_main_menu_lines(selected: usize) -> Vec<Line<'static>> {
     lines
 }
 
+fn build_debug_console_lines(input: &str) -> Vec<Line<'static>> {
+    vec![
+        Line::from(tr("debug.help.1")),
+        Line::from(tr("debug.help.2")),
+        Line::from(tr("debug.help.3")),
+        Line::from(tr("debug.help.4")),
+        Line::from(tr("debug.help.5")),
+        Line::raw(""),
+        Line::from(format!("{}{}", tr("debug.prompt"), input)),
+    ]
+}
+
+fn execute_debug_command(game: &mut Game, command: &str) {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    let mut parts = trimmed.split_whitespace();
+    let cmd = parts.next().unwrap_or_default();
+    let cmd_l = cmd.to_ascii_lowercase();
+    match cmd_l.as_str() {
+        "give" | "付与" => {
+            let Some(item_key) = parts.next() else {
+                game.push_log(tr("debug.give_usage"));
+                return;
+            };
+            let requested = parts
+                .next()
+                .and_then(|s| s.parse::<u16>().ok())
+                .unwrap_or(1)
+                .max(1);
+            let Some(kind) = Item::from_key(item_key) else {
+                game.push_log(trf(
+                    "debug.give_unknown_item",
+                    &[("item", item_key.to_string())],
+                ));
+                return;
+            };
+            let mut added: u16 = 0;
+            for _ in 0..requested {
+                if game.add_item_kind_to_inventory(kind) {
+                    added = added.saturating_add(1);
+                } else {
+                    break;
+                }
+            }
+            if added == requested {
+                game.push_log(trf(
+                    "debug.give_ok",
+                    &[
+                        ("item", localized_item_name(kind)),
+                        ("count", added.to_string()),
+                    ],
+                ));
+            } else {
+                game.push_log(trf(
+                    "debug.give_partial",
+                    &[
+                        ("item", localized_item_name(kind)),
+                        ("added", added.to_string()),
+                        ("requested", requested.to_string()),
+                    ],
+                ));
+            }
+        }
+        "tp" => {
+            let Some(arg1) = parts.next() else {
+                game.push_log(tr("debug.tp_usage"));
+                return;
+            };
+            if arg1.eq_ignore_ascii_case("exit")
+                || arg1.eq_ignore_ascii_case("stairs")
+                || arg1 == "出口"
+            {
+                if let Some(pos) = game.find_nearest_stairs(512) {
+                    match game.teleport_player(pos.x, pos.y) {
+                        Ok(()) => game.push_log(trf(
+                            "debug.tp_ok",
+                            &[("x", pos.x.to_string()), ("y", pos.y.to_string())],
+                        )),
+                        Err(msg) => game.push_log(msg),
+                    }
+                } else {
+                    game.push_log(tr("debug.exit_not_found"));
+                }
+                return;
+            }
+            let Some(arg2) = parts.next() else {
+                game.push_log(tr("debug.tp_usage"));
+                return;
+            };
+            let Ok(x) = arg1.parse::<i32>() else {
+                game.push_log(tr("debug.tp_usage"));
+                return;
+            };
+            let Ok(y) = arg2.parse::<i32>() else {
+                game.push_log(tr("debug.tp_usage"));
+                return;
+            };
+            match game.teleport_player(x, y) {
+                Ok(()) => game.push_log(trf(
+                    "debug.tp_ok",
+                    &[("x", x.to_string()), ("y", y.to_string())],
+                )),
+                Err(msg) => game.push_log(msg),
+            }
+        }
+        "find_exit" | "exit_search" | "出口探索" => {
+            if let Some(pos) = game.find_nearest_stairs(512) {
+                game.push_log(trf(
+                    "debug.exit_found",
+                    &[("x", pos.x.to_string()), ("y", pos.y.to_string())],
+                ));
+            } else {
+                game.push_log(tr("debug.exit_not_found"));
+            }
+        }
+        "inv" | "god" | "invincible" | "無敵" => {
+            let mode = parts.next().map(|s| s.to_ascii_lowercase());
+            match mode.as_deref() {
+                None | Some("toggle") => {
+                    let next = !game.invincible();
+                    game.set_invincible(next);
+                }
+                Some("on") => game.set_invincible(true),
+                Some("off") => game.set_invincible(false),
+                Some(_) => {
+                    game.push_log(tr("debug.inv_usage"));
+                    return;
+                }
+            }
+            game.push_log(if game.invincible() {
+                tr("debug.inv_on")
+            } else {
+                tr("debug.inv_off")
+            });
+        }
+        _ => {
+            game.push_log(trf("debug.unknown", &[("cmd", trimmed.to_string())]));
+        }
+    }
+}
+
+fn build_stairs_prompt_lines(selected_action: StairsAction) -> Vec<Line<'static>> {
+    let descend_style = if selected_action == StairsAction::Descend {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let stay_style = if selected_action == StairsAction::Stay {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    vec![
+        Line::from(tr("stairs.prompt")),
+        Line::raw(""),
+        Line::from(vec![
+            Span::styled("[ ", descend_style),
+            Span::styled(tr("stairs.option.descend"), descend_style),
+            Span::styled(" ]", descend_style),
+        ]),
+        Line::from(vec![
+            Span::styled("[ ", stay_style),
+            Span::styled(tr("stairs.option.stay"), stay_style),
+            Span::styled(" ]", stay_style),
+        ]),
+        Line::raw(""),
+        Line::from(tr("stairs.help")),
+    ]
+}
+
 fn build_settings_lines(selected: usize) -> Vec<Line<'static>> {
     let langs = available_languages();
     let mut lines = vec![
@@ -887,7 +1337,11 @@ fn build_settings_lines(selected: usize) -> Vec<Line<'static>> {
         } else {
             ""
         };
-        lines.push(Line::from(format!("{marker} {name} ({code}) {current}")));
+        let localized_name = tr_or_fallback(
+            format!("lang.name.{code}"),
+            name,
+        );
+        lines.push(Line::from(format!("{marker} {localized_name} ({code}) {current}")));
     }
     lines.push(Line::raw(""));
     lines.push(Line::from(tr("settings.back")));
@@ -907,6 +1361,48 @@ fn build_hints_lines() -> Vec<Line<'static>> {
         Line::raw(""),
         Line::from(tr("hints.back")),
     ]
+}
+
+fn build_dead_summary_lines(game: &Game) -> Vec<Line<'static>> {
+    vec![
+        Line::from(tr("death.header")),
+        Line::from(tr("death.help")),
+        Line::raw(""),
+        Line::from(trf("death.stat.turn", &[("v", game.turn.to_string())])),
+        Line::from(trf("death.stat.level", &[("v", game.level.to_string())])),
+        Line::from(trf("death.stat.exp_total", &[("v", game.stat_total_exp.to_string())])),
+        Line::from(trf(
+            "death.stat.defeated",
+            &[("v", game.stat_enemies_defeated.to_string())],
+        )),
+        Line::from(trf(
+            "death.stat.damage_dealt",
+            &[("v", game.stat_damage_dealt.to_string())],
+        )),
+        Line::from(trf(
+            "death.stat.damage_taken",
+            &[("v", game.stat_damage_taken.to_string())],
+        )),
+        Line::from(trf(
+            "death.stat.steps",
+            &[("v", game.stat_steps.to_string())],
+        )),
+        Line::from(trf(
+            "death.stat.items",
+            &[("v", game.stat_items_picked.to_string())],
+        )),
+    ]
+}
+
+fn build_dead_log_lines(game: &Game, scroll: usize) -> Vec<Line<'static>> {
+    let mut lines = vec![Line::from(tr("death.log_title")), Line::raw("")];
+    if game.logs.is_empty() {
+        lines.push(Line::from(tr("inventory.empty")));
+        return lines;
+    }
+    let start = scroll.min(game.logs.len().saturating_sub(1));
+    lines.extend(game.logs[start..].iter().cloned().map(Line::from));
+    lines
 }
 
 fn build_item_menu_lines(game: &Game, selected: usize, action_idx: usize) -> Vec<Line<'static>> {
@@ -949,6 +1445,7 @@ fn render_crafting_modal(
     frame.render_widget(Clear, area);
     let container = Block::default()
         .borders(Borders::ALL)
+        .border_style(Style::default().fg(ui_chrome_color(game)))
         .title(tr("title.crafting"));
     let inner = container.inner(area);
     frame.render_widget(container, area);
@@ -1044,6 +1541,19 @@ fn render_crafting_modal(
         ]),
         sub[4],
     );
+
+    let craft_style = if focus == CraftFocus::CraftButton {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let craft_line = Line::from(vec![
+        Span::raw("  "),
+        Span::styled("[ ", craft_style),
+        Span::styled(tr("craft.button"), craft_style),
+        Span::styled(" ]", craft_style),
+    ]);
+    frame.render_widget(Paragraph::new(craft_line), sub[5]);
 }
 
 fn find_recipe(grid: &[Option<InventoryItem>; 9]) -> Option<&'static RecipeDef> {
@@ -1081,7 +1591,8 @@ fn fbm_noise01(
 
 fn main() {
     text::init_from_env();
-    if let Err(e) = run() {
+    let debug_enabled = env::args().any(|arg| arg == "--debug" || arg == "-d");
+    if let Err(e) = run(debug_enabled) {
         eprintln!("{e}");
     }
 }
@@ -1159,7 +1670,10 @@ fn place_inventory_item_into_grid(
     let inv_len = game.inventory_len();
     let selected = *selected_inv;
     if inv_len > 0 && selected < inv_len {
-        let picked = game.inventory.remove(selected);
+        let Some(picked) = game.take_inventory_one(selected) else {
+            game.push_log(tr("craft.log.no_inv_selected"));
+            return;
+        };
         let prev = grid[cursor].take();
         grid[cursor] = Some(picked);
         if let Some(prev_item) = prev {
@@ -1203,7 +1717,18 @@ fn erase_save_on_death(game: &mut Game) {
     }
 }
 
-fn run() -> io::Result<()> {
+fn transition_to_dead(game: &mut Game, ui_mode: &mut UiMode, death_processed: &mut bool) {
+    if !*death_processed {
+        erase_save_on_death(game);
+        *death_processed = true;
+    }
+    *ui_mode = UiMode::Dead {
+        scroll: 0,
+        selected_action: DeadAction::Restart,
+    };
+}
+
+fn run(debug_enabled: bool) -> io::Result<()> {
     let _guard = TerminalGuard::new()?;
     let backend = ratatui::backend::CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
@@ -1211,10 +1736,24 @@ fn run() -> io::Result<()> {
     let mut game = load_game_or_new(initial_seed());
     let mut esc_hold_count: u8 = 0;
     let mut ui_mode = UiMode::Normal;
+    let mut death_processed = false;
 
     loop {
         terminal.draw(|frame| render_ui(frame, &mut game, esc_hold_count, &ui_mode))?;
         game.advance_effects();
+
+        if game.player_hp <= 0 && !matches!(ui_mode, UiMode::Dead { .. }) {
+            transition_to_dead(&mut game, &mut ui_mode, &mut death_processed);
+            continue;
+        }
+
+        if game.has_pending_effects() {
+            while event::poll(Duration::from_millis(0))? {
+                let _ = event::read()?;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        }
 
         if !event::poll(Duration::from_millis(50))? {
             continue;
@@ -1250,9 +1789,44 @@ fn run() -> io::Result<()> {
                         && !key.modifiers.contains(KeyModifiers::CONTROL)
                         && !key.modifiers.contains(KeyModifiers::ALT);
 
-                    if matches!(key.code, KeyCode::Char('m') | KeyCode::Char('M')) {
+                    if debug_enabled && matches!(key.code, KeyCode::Char('/')) {
+                        ui_mode = UiMode::DebugConsole {
+                            input: String::new(),
+                        };
+                        continue;
+                    }
+
+                    if matches!(
+                        key.code,
+                        KeyCode::Char('v') | KeyCode::Char('V') | KeyCode::Char('m') | KeyCode::Char('M')
+                    ) {
                         ui_mode = UiMode::MainMenu { selected: 0 };
                         continue;
+                    }
+
+                    if let KeyCode::Char(ch) = key.code {
+                        if ('1'..='9').contains(&ch) || ch == '0' {
+                            let idx = if ch == '0' {
+                                9
+                            } else {
+                                (ch as u8 - b'1') as usize
+                            };
+                            if idx < game.inventory_len() {
+                                if game.use_inventory_item(idx) {
+                                    game.consume_non_attack_turn();
+                                    if game.player_hp <= 0 {
+                                        transition_to_dead(
+                                            &mut game,
+                                            &mut ui_mode,
+                                            &mut death_processed,
+                                        );
+                                    } else {
+                                        persist_game(&mut game);
+                                    }
+                                }
+                            }
+                            continue;
+                        }
                     }
 
                     let action = if let Some((dx, dy)) = movement_delta(key.code) {
@@ -1273,12 +1847,85 @@ fn run() -> io::Result<()> {
                     };
 
                     if let Some(action) = action {
+                        let before = game.player;
+                        let moved = matches!(action, Action::Move(_, _));
                         game.apply_action(action);
                         if game.player_hp <= 0 {
-                            erase_save_on_death(&mut game);
-                            break;
+                            transition_to_dead(&mut game, &mut ui_mode, &mut death_processed);
+                        } else {
+                            let stepped_on_stairs = moved
+                                && (game.player.x != before.x || game.player.y != before.y)
+                                && game.is_on_stairs();
+                            if stepped_on_stairs {
+                                ui_mode = UiMode::StairsPrompt {
+                                    selected_action: StairsAction::Descend,
+                                };
+                            } else if let Some(text) = game.take_pending_dialogue() {
+                                game.push_log(text);
+                            }
+                            persist_game(&mut game);
                         }
-                        persist_game(&mut game);
+                    }
+                }
+                UiMode::DebugConsole { input } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Esc => {
+                            ui_mode = UiMode::Normal;
+                        }
+                        KeyCode::Enter => {
+                            let cmd = input.trim().to_string();
+                            if !cmd.is_empty() {
+                                execute_debug_command(&mut game, &cmd);
+                                persist_game(&mut game);
+                            }
+                            ui_mode = UiMode::Normal;
+                        }
+                        KeyCode::Backspace => {
+                            input.pop();
+                        }
+                        KeyCode::Char(ch) => {
+                            if !ch.is_control() && input.len() < 128 {
+                                input.push(ch);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                UiMode::StairsPrompt { selected_action } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Up
+                        | KeyCode::Left
+                        | KeyCode::Char('w')
+                        | KeyCode::Char('W')
+                        | KeyCode::Char('a')
+                        | KeyCode::Char('A') => {
+                            *selected_action = StairsAction::Descend;
+                        }
+                        KeyCode::Down
+                        | KeyCode::Right
+                        | KeyCode::Char('s')
+                        | KeyCode::Char('S')
+                        | KeyCode::Char('d')
+                        | KeyCode::Char('D') => {
+                            *selected_action = StairsAction::Stay;
+                        }
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
+                            if *selected_action == StairsAction::Descend {
+                                game.descend_floor();
+                                persist_game(&mut game);
+                            }
+                            ui_mode = UiMode::Normal;
+                        }
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
+                            ui_mode = UiMode::Normal;
+                        }
+                        _ => {}
                     }
                 }
                 UiMode::MainMenu { selected } => {
@@ -1286,12 +1933,17 @@ fn run() -> io::Result<()> {
                         continue;
                     }
                     match key.code {
-                        KeyCode::Esc => ui_mode = UiMode::Normal,
-                        KeyCode::Up => *selected = selected.saturating_sub(1),
-                        KeyCode::Down => {
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
+                            ui_mode = UiMode::Normal
+                        }
+                        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') => {
+                            *selected = selected.saturating_sub(1)
+                        }
+                        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') => {
                             *selected = (*selected + 1).min(MAIN_MENU_ENTRIES.len() - 1);
                         }
-                        KeyCode::Enter => match MAIN_MENU_ENTRIES[*selected] {
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
+                            match MAIN_MENU_ENTRIES[*selected] {
                             MainMenuEntry::Items => ui_mode = UiMode::Inventory { selected: 0 },
                             MainMenuEntry::Crafting => {
                                 ui_mode = UiMode::Crafting {
@@ -1311,7 +1963,8 @@ fn run() -> io::Result<()> {
                             }
                             MainMenuEntry::Hints => ui_mode = UiMode::Hints,
                             MainMenuEntry::Exit => break,
-                        },
+                        }
+                        }
                         _ => {}
                     }
                 }
@@ -1321,16 +1974,18 @@ fn run() -> io::Result<()> {
                     }
                     let langs = available_languages();
                     match key.code {
-                        KeyCode::Esc => ui_mode = UiMode::MainMenu { selected: 0 },
-                        KeyCode::Up => {
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
+                            ui_mode = UiMode::MainMenu { selected: 0 }
+                        }
+                        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') => {
                             *selected = selected.saturating_sub(1);
                         }
-                        KeyCode::Down => {
+                        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') => {
                             if !langs.is_empty() {
                                 *selected = (*selected + 1).min(langs.len() - 1);
                             }
                         }
-                        KeyCode::Enter => {
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
                             if let Some((code, name)) = langs.get(*selected) {
                                 if set_lang(code) {
                                     game.push_log(trf(
@@ -1347,7 +2002,7 @@ fn run() -> io::Result<()> {
                     if key.kind != KeyEventKind::Press {
                         continue;
                     }
-                    if key.code == KeyCode::Esc {
+                    if matches!(key.code, KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V')) {
                         ui_mode = UiMode::MainMenu { selected: 0 };
                     }
                 }
@@ -1357,18 +2012,20 @@ fn run() -> io::Result<()> {
                     }
                     let len = game.inventory_len();
                     match key.code {
-                        KeyCode::Esc => ui_mode = UiMode::MainMenu { selected: 0 },
-                        KeyCode::Up => {
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
+                            ui_mode = UiMode::MainMenu { selected: 0 }
+                        }
+                        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') => {
                             if len > 0 {
                                 *selected = selected.saturating_sub(1);
                             }
                         }
-                        KeyCode::Down => {
+                        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') => {
                             if len > 0 {
                                 *selected = (*selected + 1).min(len - 1);
                             }
                         }
-                        KeyCode::Enter => {
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
                             if len > 0 {
                                 *selected = (*selected).min(len - 1);
                                 ui_mode = UiMode::ItemMenu {
@@ -1394,18 +2051,18 @@ fn run() -> io::Result<()> {
                     }
                     *selected = (*selected).min(len - 1);
                     match key.code {
-                        KeyCode::Esc => {
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
                             ui_mode = UiMode::Inventory {
                                 selected: *selected,
                             };
                         }
-                        KeyCode::Up => {
+                        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') => {
                             *action_idx = action_idx.saturating_sub(1);
                         }
-                        KeyCode::Down => {
+                        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') => {
                             *action_idx = (*action_idx + 1).min(ITEM_MENU_ACTIONS.len() - 1);
                         }
-                        KeyCode::Enter => {
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
                             let item_idx = *selected;
                             match ITEM_MENU_ACTIONS[*action_idx] {
                                 ItemMenuAction::Rename => {
@@ -1420,10 +2077,17 @@ fn run() -> io::Result<()> {
                                     if game.drop_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
                                         if game.player_hp <= 0 {
-                                            erase_save_on_death(&mut game);
-                                            break;
+                                            transition_to_dead(
+                                                &mut game,
+                                                &mut ui_mode,
+                                                &mut death_processed,
+                                            );
+                                        } else {
+                                            persist_game(&mut game);
                                         }
-                                        persist_game(&mut game);
+                                    }
+                                    if game.player_hp <= 0 {
+                                        continue;
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
@@ -1438,10 +2102,17 @@ fn run() -> io::Result<()> {
                                     if game.throw_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
                                         if game.player_hp <= 0 {
-                                            erase_save_on_death(&mut game);
-                                            break;
+                                            transition_to_dead(
+                                                &mut game,
+                                                &mut ui_mode,
+                                                &mut death_processed,
+                                            );
+                                        } else {
+                                            persist_game(&mut game);
                                         }
-                                        persist_game(&mut game);
+                                    }
+                                    if game.player_hp <= 0 {
+                                        continue;
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
@@ -1456,10 +2127,17 @@ fn run() -> io::Result<()> {
                                     if game.use_inventory_item(item_idx) {
                                         game.consume_non_attack_turn();
                                         if game.player_hp <= 0 {
-                                            erase_save_on_death(&mut game);
-                                            break;
+                                            transition_to_dead(
+                                                &mut game,
+                                                &mut ui_mode,
+                                                &mut death_processed,
+                                            );
+                                        } else {
+                                            persist_game(&mut game);
                                         }
-                                        persist_game(&mut game);
+                                    }
+                                    if game.player_hp <= 0 {
+                                        continue;
                                     }
                                     let next_len = game.inventory_len();
                                     if next_len == 0 {
@@ -1472,7 +2150,7 @@ fn run() -> io::Result<()> {
                                 }
                             }
                             if game.player_hp <= 0 {
-                                break;
+                                transition_to_dead(&mut game, &mut ui_mode, &mut death_processed);
                             }
                         }
                         _ => {}
@@ -1489,13 +2167,13 @@ fn run() -> io::Result<()> {
                     }
                     let item_idx = (*selected).min(len - 1);
                     match key.code {
-                        KeyCode::Esc => {
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => {
                             ui_mode = UiMode::ItemMenu {
                                 selected: item_idx,
                                 action_idx: 0,
                             };
                         }
-                        KeyCode::Enter => {
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
                             let name = input.clone();
                             let _ = game.rename_inventory_item(item_idx, name);
                             persist_game(&mut game);
@@ -1532,7 +2210,10 @@ fn run() -> io::Result<()> {
                     }
 
                     match key.code {
-                        KeyCode::Esc | KeyCode::Tab => {
+                        KeyCode::Esc
+                        | KeyCode::Tab
+                        | KeyCode::Char('v')
+                        | KeyCode::Char('V') => {
                             if *focus == CraftFocus::Inventory {
                                 *focus = CraftFocus::Grid;
                             } else {
@@ -1541,66 +2222,166 @@ fn run() -> io::Result<()> {
                             }
                         }
                         KeyCode::Up => {
-                            if *focus == CraftFocus::Grid {
-                                *cursor = move_cursor_3x3(*cursor, 0, -1);
+                            match *focus {
+                                CraftFocus::Grid => {
+                                    *cursor = move_cursor_3x3(*cursor, 0, -1);
+                                }
+                                CraftFocus::Inventory | CraftFocus::CraftButton => {
+                                    *focus = CraftFocus::Grid;
+                                }
                             }
                         }
                         KeyCode::Down => {
-                            if *focus == CraftFocus::Grid {
-                                *cursor = move_cursor_3x3(*cursor, 0, 1);
+                            match *focus {
+                                CraftFocus::Grid => {
+                                    if (*cursor / 3) >= 2 {
+                                        *focus = CraftFocus::CraftButton;
+                                    } else {
+                                        *cursor = move_cursor_3x3(*cursor, 0, 1);
+                                    }
+                                }
+                                CraftFocus::Inventory => {
+                                    *focus = CraftFocus::CraftButton;
+                                }
+                                CraftFocus::CraftButton => {}
                             }
                         }
                         KeyCode::Left => {
-                            if *focus == CraftFocus::Grid {
-                                *cursor = move_cursor_3x3(*cursor, -1, 0);
-                            } else if inv_len > 0 {
-                                *selected_inv = selected_inv.saturating_sub(1);
+                            match *focus {
+                                CraftFocus::Grid => {
+                                    *cursor = move_cursor_3x3(*cursor, -1, 0);
+                                }
+                                CraftFocus::Inventory => {
+                                    if inv_len > 0 {
+                                        *selected_inv = selected_inv.saturating_sub(1);
+                                    }
+                                }
+                                CraftFocus::CraftButton => {
+                                    if inv_len > 0 {
+                                        *focus = CraftFocus::Inventory;
+                                    }
+                                }
                             }
                         }
                         KeyCode::Right => {
-                            if *focus == CraftFocus::Grid {
-                                *cursor = move_cursor_3x3(*cursor, 1, 0);
-                            } else if inv_len > 0 {
-                                *selected_inv = (*selected_inv + 1).min(inv_len - 1);
+                            match *focus {
+                                CraftFocus::Grid => {
+                                    *cursor = move_cursor_3x3(*cursor, 1, 0);
+                                }
+                                CraftFocus::Inventory => {
+                                    if inv_len > 0 {
+                                        *selected_inv = (*selected_inv + 1).min(inv_len - 1);
+                                    }
+                                }
+                                CraftFocus::CraftButton => {
+                                    if inv_len > 0 {
+                                        *focus = CraftFocus::Inventory;
+                                    }
+                                }
                             }
                         }
                         KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
                             'w' => {
-                                if *focus == CraftFocus::Grid {
-                                    *cursor = move_cursor_3x3(*cursor, 0, -1);
+                                match *focus {
+                                    CraftFocus::Grid => {
+                                        *cursor = move_cursor_3x3(*cursor, 0, -1);
+                                    }
+                                    CraftFocus::Inventory | CraftFocus::CraftButton => {
+                                        *focus = CraftFocus::Grid;
+                                    }
                                 }
                             }
                             's' => {
-                                if *focus == CraftFocus::Grid {
-                                    *cursor = move_cursor_3x3(*cursor, 0, 1);
+                                match *focus {
+                                    CraftFocus::Grid => {
+                                        if (*cursor / 3) >= 2 {
+                                            *focus = CraftFocus::CraftButton;
+                                        } else {
+                                            *cursor = move_cursor_3x3(*cursor, 0, 1);
+                                        }
+                                    }
+                                    CraftFocus::Inventory => {
+                                        *focus = CraftFocus::CraftButton;
+                                    }
+                                    CraftFocus::CraftButton => {}
                                 }
                             }
                             'a' => {
-                                if *focus == CraftFocus::Grid {
-                                    *cursor = move_cursor_3x3(*cursor, -1, 0);
-                                } else if inv_len > 0 {
-                                    *selected_inv = selected_inv.saturating_sub(1);
+                                match *focus {
+                                    CraftFocus::Grid => {
+                                        *cursor = move_cursor_3x3(*cursor, -1, 0);
+                                    }
+                                    CraftFocus::Inventory => {
+                                        if inv_len > 0 {
+                                            *selected_inv = selected_inv.saturating_sub(1);
+                                        }
+                                    }
+                                    CraftFocus::CraftButton => {
+                                        if inv_len > 0 {
+                                            *focus = CraftFocus::Inventory;
+                                        }
+                                    }
                                 }
                             }
                             'd' => {
-                                if *focus == CraftFocus::Grid {
-                                    *cursor = move_cursor_3x3(*cursor, 1, 0);
-                                } else if inv_len > 0 {
-                                    *selected_inv = (*selected_inv + 1).min(inv_len - 1);
-                                }
-                            }
-                            'x' => {
-                                if *focus == CraftFocus::Grid && execute_crafting(&mut game, grid) {
-                                    game.consume_non_attack_turn();
-                                    if game.player_hp <= 0 {
-                                        erase_save_on_death(&mut game);
-                                        break;
+                                match *focus {
+                                    CraftFocus::Grid => {
+                                        *cursor = move_cursor_3x3(*cursor, 1, 0);
                                     }
-                                    persist_game(&mut game);
+                                    CraftFocus::Inventory => {
+                                        if inv_len > 0 {
+                                            *selected_inv = (*selected_inv + 1).min(inv_len - 1);
+                                        }
+                                    }
+                                    CraftFocus::CraftButton => {
+                                        if inv_len > 0 {
+                                            *focus = CraftFocus::Inventory;
+                                        }
+                                    }
                                 }
                             }
-                            ' ' => {
-                                if *focus == CraftFocus::Grid {
+                            'f' | ' ' => {
+                                match *focus {
+                                    CraftFocus::Grid => {
+                                        let idx = *cursor;
+                                        if let Some(item) = grid[idx].take() {
+                                            game.stash_or_drop_item(item);
+                                        } else if inv_len > 0 {
+                                            *focus = CraftFocus::Inventory;
+                                        } else {
+                                            game.push_log(tr("log.no_inv_to_place"));
+                                        }
+                                    }
+                                    CraftFocus::Inventory => {
+                                        place_inventory_item_into_grid(
+                                            &mut game,
+                                            grid,
+                                            *cursor,
+                                            selected_inv,
+                                        );
+                                        *focus = CraftFocus::Grid;
+                                    }
+                                    CraftFocus::CraftButton => {
+                                        if execute_crafting(&mut game, grid) {
+                                            game.consume_non_attack_turn();
+                                            if game.player_hp <= 0 {
+                                                transition_to_dead(
+                                                    &mut game,
+                                                    &mut ui_mode,
+                                                    &mut death_processed,
+                                                );
+                                            } else {
+                                                persist_game(&mut game);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Enter => {
+                            match *focus {
+                                CraftFocus::Grid => {
                                     let idx = *cursor;
                                     if let Some(item) = grid[idx].take() {
                                         game.stash_or_drop_item(item);
@@ -1609,7 +2390,8 @@ fn run() -> io::Result<()> {
                                     } else {
                                         game.push_log(tr("log.no_inv_to_place"));
                                     }
-                                } else {
+                                }
+                                CraftFocus::Inventory => {
                                     place_inventory_item_into_grid(
                                         &mut game,
                                         grid,
@@ -1618,22 +2400,20 @@ fn run() -> io::Result<()> {
                                     );
                                     *focus = CraftFocus::Grid;
                                 }
-                            }
-                            _ => {}
-                        },
-                        KeyCode::Enter => {
-                            if *focus == CraftFocus::Grid {
-                                let idx = *cursor;
-                                if let Some(item) = grid[idx].take() {
-                                    game.stash_or_drop_item(item);
-                                } else if inv_len > 0 {
-                                    *focus = CraftFocus::Inventory;
-                                } else {
-                                    game.push_log(tr("log.no_inv_to_place"));
+                                CraftFocus::CraftButton => {
+                                    if execute_crafting(&mut game, grid) {
+                                        game.consume_non_attack_turn();
+                                        if game.player_hp <= 0 {
+                                            transition_to_dead(
+                                                &mut game,
+                                                &mut ui_mode,
+                                                &mut death_processed,
+                                            );
+                                        } else {
+                                            persist_game(&mut game);
+                                        }
+                                    }
                                 }
-                            } else {
-                                place_inventory_item_into_grid(&mut game, grid, *cursor, selected_inv);
-                                *focus = CraftFocus::Grid;
                             }
                         }
                         KeyCode::Backspace | KeyCode::Delete => {
@@ -1644,6 +2424,41 @@ fn run() -> io::Result<()> {
                                 }
                             }
                         }
+                        _ => {}
+                    }
+                }
+                UiMode::Dead {
+                    scroll,
+                    selected_action,
+                } => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Up | KeyCode::Char('w') | KeyCode::Char('W') => {
+                            *scroll = scroll.saturating_sub(1);
+                        }
+                        KeyCode::Down | KeyCode::Char('s') | KeyCode::Char('S') => {
+                            *scroll = scroll.saturating_add(1);
+                        }
+                        KeyCode::Left | KeyCode::Char('a') | KeyCode::Char('A') => {
+                            *selected_action = DeadAction::Restart;
+                        }
+                        KeyCode::Right | KeyCode::Char('d') | KeyCode::Char('D') => {
+                            *selected_action = DeadAction::Exit;
+                        }
+                        KeyCode::Enter | KeyCode::Char('f') | KeyCode::Char('F') => {
+                            match *selected_action {
+                                DeadAction::Restart => {
+                                    game = Game::new(initial_seed());
+                                    ui_mode = UiMode::Normal;
+                                    esc_hold_count = 0;
+                                    death_processed = false;
+                                }
+                                DeadAction::Exit => break,
+                            }
+                        }
+                        KeyCode::Esc | KeyCode::Char('v') | KeyCode::Char('V') => break,
                         _ => {}
                     }
                 }

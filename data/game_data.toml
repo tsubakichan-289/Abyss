@@ -83,6 +83,14 @@ shadow_color = 236
 walkable = false
 legend = "Wall (blocked)"
 
+[[tiles]]
+id = "stairs_down"
+glyph = ">"
+color = 220
+shadow_color = 178
+walkable = true
+legend = "Down stairs"
+
 [[items]]
 id = "potion"
 name = "Potion"
@@ -109,6 +117,60 @@ color = 220
 legend = "Elixir"
 status = "Consumable"
 description = "A strong restorative drink. Restores a lot of HP."
+
+[[items]]
+id = "food"
+name = "Food"
+glyph = "%"
+color = 142
+legend = "Food"
+status = "Consumable"
+description = "Restores hunger when eaten."
+
+[[items]]
+id = "bread"
+name = "Bread"
+glyph = "b"
+color = 180
+legend = "Bread"
+status = "Consumable"
+description = "Simple bread. Restores a little hunger."
+
+[[items]]
+id = "torch"
+name = "Torch"
+glyph = "i"
+color = 220
+legend = "Torch"
+status = "Tool"
+description = "Place it to light up nearby tiles."
+
+[[items]]
+id = "flame_scroll"
+name = "Flame Scroll"
+glyph = "?"
+color = 202
+legend = "Flame Scroll"
+status = "Magic"
+description = "Casts a flame bolt in front. The scroll is not consumed."
+
+[[items]]
+id = "blink_scroll"
+name = "Blink Scroll"
+glyph = "?"
+color = 39
+legend = "Blink Scroll"
+status = "Magic"
+description = "Blinks a short distance forward. The scroll is not consumed."
+
+[[items]]
+id = "nova_scroll"
+name = "Nova Scroll"
+glyph = "?"
+color = 199
+legend = "Nova Scroll"
+status = "Magic"
+description = "Deals damage to all enemies within radius 4. The scroll is not consumed."
 
 [[items]]
 id = "wood"
@@ -182,6 +244,24 @@ legend = "Iron Pickaxe"
 status = "Tool"
 description = "A heavy tool useful as a sturdy weapon."
 
+[[items]]
+id = "wooden_shield"
+name = "Wooden Shield"
+glyph = "]"
+color = 180
+legend = "Wooden Shield"
+status = "Shield"
+description = "Basic shield that improves defense."
+
+[[items]]
+id = "lucky_charm"
+name = "Lucky Charm"
+glyph = "*"
+color = 221
+legend = "Lucky Charm"
+status = "Accessory"
+description = "A small charm that slightly boosts attack and defense."
+
 [[recipes]]
 result = "stone_axe"
 label = "Stone Axe"
@@ -206,6 +286,16 @@ inputs = ["", "iron_ingot", "", "", "iron_ingot", "", "", "wood", ""]
 result = "iron_pickaxe"
 label = "Iron Pickaxe"
 inputs = ["iron_ingot", "iron_ingot", "iron_ingot", "", "wood", "", "", "wood", ""]
+
+[[recipes]]
+result = "wooden_shield"
+label = "Wooden Shield"
+inputs = ["wood", "wood", "wood", "wood", "hide", "wood", "", "hide", ""]
+
+[[recipes]]
+result = "lucky_charm"
+label = "Lucky Charm"
+inputs = ["", "string", "", "string", "iron_ingot", "string", "", "hide", ""]
 
 [[creatures]]
 id = "player"
@@ -241,6 +331,17 @@ defense = 0
 spawn_weight = 0
 
 [[creatures]]
+id = "traveler"
+name = "Traveler"
+faction = "neutral"
+glyph = "t"
+color = 223
+hp = 6
+attack = 1
+defense = 1
+spawn_weight = 0
+
+[[creatures]]
 id = "wolf"
 name = "Wolf"
 faction = "hostile"
@@ -272,3 +373,47 @@ hp = 8
 attack = 4
 defense = 2
 spawn_weight = 35
+
+[[creatures]]
+id = "slime_brute"
+name = "Brute Slime"
+faction = "hostile"
+glyph = "S"
+color = 196
+hp = 6
+attack = 3
+defense = 1
+spawn_weight = 55
+
+[[creatures]]
+id = "wolf_alpha"
+name = "Alpha Wolf"
+faction = "hostile"
+glyph = "A"
+color = 214
+hp = 8
+attack = 5
+defense = 2
+spawn_weight = 40
+
+[[creatures]]
+id = "bat_night"
+name = "Night Bat"
+faction = "hostile"
+glyph = "N"
+color = 99
+hp = 7
+attack = 4
+defense = 1
+spawn_weight = 35
+
+[[creatures]]
+id = "golem_elder"
+name = "Elder Golem"
+faction = "hostile"
+glyph = "H"
+color = 250
+hp = 14
+attack = 7
+defense = 4
+spawn_weight = 22
