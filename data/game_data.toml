@@ -119,13 +119,13 @@ status = "Consumable"
 description = "A strong restorative drink. Restores a lot of HP."
 
 [[items]]
-id = "food"
-name = "Food"
+id = "jerky"
+name = "Jerky"
 glyph = "%"
 color = 142
-legend = "Food"
+legend = "Jerky"
 status = "Consumable"
-description = "Restores hunger when eaten."
+description = "Dried meat. Restores hunger when eaten."
 
 [[items]]
 id = "bread"

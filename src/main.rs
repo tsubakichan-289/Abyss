@@ -78,7 +78,7 @@ impl Item {
             Self::Potion => "potion",
             Self::Herb => "herb",
             Self::Elixir => "elixir",
-            Self::Food => "food",
+            Self::Food => "jerky",
             Self::Bread => "bread",
             Self::Torch => "torch",
             Self::FlameScroll => "flame_scroll",
@@ -102,7 +102,7 @@ impl Item {
             "potion" => Some(Self::Potion),
             "herb" => Some(Self::Herb),
             "elixir" => Some(Self::Elixir),
-            "food" => Some(Self::Food),
+            "jerky" | "food" => Some(Self::Food),
             "bread" => Some(Self::Bread),
             "torch" => Some(Self::Torch),
             "flame_scroll" => Some(Self::FlameScroll),
@@ -685,6 +685,8 @@ fn is_hp_critical(game: &Game) -> bool {
 fn ui_chrome_color(game: &Game) -> Color {
     if is_hp_critical(game) {
         Color::Red
+    } else if game.player_hunger.max(0) * 10 < game.player_max_hunger.max(1) {
+        Color::Yellow
     } else {
         Color::White
     }
@@ -834,21 +836,6 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
         )
     };
 
-    let equipped_sword = game
-        .equipped_sword
-        .as_ref()
-        .map(InventoryItem::display_name)
-        .unwrap_or_else(|| tr("status.none").to_string());
-    let equipped_shield = game
-        .equipped_shield
-        .as_ref()
-        .map(InventoryItem::display_name)
-        .unwrap_or_else(|| tr("status.none").to_string());
-    let equipped_accessory = game
-        .equipped_accessory
-        .as_ref()
-        .map(InventoryItem::display_name)
-        .unwrap_or_else(|| tr("status.none").to_string());
     let hp_color = if is_hp_critical(game) {
         Color::Red
     } else {
@@ -908,18 +895,6 @@ fn build_status_lines(game: &mut Game, esc_hold_count: u8) -> Vec<Line<'static>>
                 ("count", game.inventory_len().to_string()),
                 ("max", MAX_INVENTORY.to_string()),
             ],
-        )),
-        Line::from(trf(
-            "status.slot_sword",
-            &[("name", equipped_sword)],
-        )),
-        Line::from(trf(
-            "status.slot_shield",
-            &[("name", equipped_shield)],
-        )),
-        Line::from(trf(
-            "status.slot_accessory",
-            &[("name", equipped_accessory)],
         )),
         Line::from(trf("status.seed", &[("seed", game.world.seed.to_string())])),
         Line::from(trf(
@@ -1016,6 +991,9 @@ fn build_log_lines(game: &Game, max_lines: usize) -> Vec<Line<'static>> {
 fn build_quickbar_line(game: &Game) -> Line<'static> {
     let mut spans: Vec<Span<'static>> = Vec::new();
     let max_slots = 10usize;
+    let equipped_sword = game.equipped_sword.as_ref();
+    let equipped_shield = game.equipped_shield.as_ref();
+    let equipped_accessory = game.equipped_accessory.as_ref();
     for i in 0..max_slots {
         let slot_label = if i == 9 {
             '0'
@@ -1034,6 +1012,28 @@ fn build_quickbar_line(game: &Game) -> Line<'static> {
                 item.kind.glyph().to_string(),
                 Style::default().fg(item.kind.color()).bold(),
             ));
+            let mut equip_badges = String::new();
+            if equipped_sword
+                .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+            {
+                equip_badges.push('W');
+            }
+            if equipped_shield
+                .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+            {
+                equip_badges.push('S');
+            }
+            if equipped_accessory
+                .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+            {
+                equip_badges.push('A');
+            }
+            if !equip_badges.is_empty() {
+                spans.push(Span::styled(
+                    format!("[{}]", equip_badges),
+                    Style::default().fg(Color::Cyan).bold(),
+                ));
+            }
             if item.qty > 1 {
                 spans.push(Span::raw(format!("x{}", item.qty)));
             }
@@ -1057,17 +1057,45 @@ fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
             ],
         )),
         Line::from(tr("inventory.help")),
+        Line::from(tr("inventory.equip_legend")),
         Line::raw(""),
     ];
     if game.inventory.is_empty() {
         lines.push(Line::from(tr("inventory.empty")));
         return lines;
     }
+    let equipped_sword = game.equipped_sword.as_ref();
+    let equipped_shield = game.equipped_shield.as_ref();
+    let equipped_accessory = game.equipped_accessory.as_ref();
     for (idx, item) in game.inventory.iter().enumerate() {
         let marker_style = if idx == selected {
             Style::default().fg(Color::Yellow).bold()
         } else {
             Style::default()
+        };
+        let mut equip_badges = String::new();
+        if equipped_sword
+            .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+        {
+            equip_badges.push('W');
+        }
+        if equipped_shield
+            .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+        {
+            equip_badges.push('S');
+        }
+        if equipped_accessory
+            .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name)
+        {
+            equip_badges.push('A');
+        }
+        let badge_span = if equip_badges.is_empty() {
+            Span::raw("")
+        } else {
+            Span::styled(
+                format!(" [{}]", equip_badges),
+                Style::default().fg(Color::Cyan).bold(),
+            )
         };
         lines.push(Line::from(vec![
             Span::styled(if idx == selected { ">" } else { " " }, marker_style),
@@ -1078,6 +1106,7 @@ fn build_inventory_lines(game: &Game, selected: usize) -> Vec<Line<'static>> {
             ),
             Span::raw(" "),
             Span::raw(item.display_name_with_qty()),
+            badge_span,
         ]));
     }
     lines
@@ -1368,6 +1397,7 @@ fn build_dead_summary_lines(game: &Game) -> Vec<Line<'static>> {
         Line::from(tr("death.header")),
         Line::from(tr("death.help")),
         Line::raw(""),
+        Line::from(trf("death.cause", &[("v", game.death_cause_text())])),
         Line::from(trf("death.stat.turn", &[("v", game.turn.to_string())])),
         Line::from(trf("death.stat.level", &[("v", game.level.to_string())])),
         Line::from(trf("death.stat.exp_total", &[("v", game.stat_total_exp.to_string())])),
@@ -1837,9 +1867,9 @@ fn run(debug_enabled: bool) -> io::Result<()> {
                         }
                     } else {
                         match key.code {
+                            KeyCode::Char(' ') => Some(Action::Wait),
                             KeyCode::Char(ch) => match ch.to_ascii_lowercase() {
                                 'f' => Some(Action::Attack),
-                                '.' => Some(Action::Wait),
                                 _ => None,
                             },
                             _ => None,

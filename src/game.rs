@@ -877,6 +877,7 @@ pub(crate) struct Game {
     pub(crate) logs: Vec<String>,
     pending_dialogue: Option<String>,
     invincible: bool,
+    death_cause: Option<String>,
 }
 
 impl Game {
@@ -920,6 +921,7 @@ impl Game {
             logs: vec![tr("game.start").to_string()],
             pending_dialogue: None,
             invincible: false,
+            death_cause: None,
         };
         game.player = game.find_spawn();
         game.place_initial_stairs();
@@ -1104,7 +1106,6 @@ impl Game {
                 keep_harvest_chain = self.player_attack();
             }
             Action::Wait => {
-                self.push_log(tr("game.waited"));
             }
         }
         if consume_turn {
@@ -1171,6 +1172,12 @@ impl Game {
 
     pub(crate) fn invincible(&self) -> bool {
         self.invincible
+    }
+
+    pub(crate) fn death_cause_text(&self) -> String {
+        self.death_cause
+            .clone()
+            .unwrap_or_else(|| tr("death.cause.unknown").to_string())
     }
 
     fn player_attack(&mut self) -> bool {
@@ -1431,13 +1438,43 @@ impl Game {
         if idx >= self.inventory.len() {
             return None;
         }
-        if self.inventory[idx].qty > 1 {
+        let taken = if self.inventory[idx].qty > 1 {
             self.inventory[idx].qty = self.inventory[idx].qty.saturating_sub(1);
             let mut one = self.inventory[idx].clone();
             one.qty = 1;
-            Some(one)
+            one
         } else {
-            Some(self.inventory.remove(idx))
+            self.inventory.remove(idx)
+        };
+        self.sync_equipped_with_inventory();
+        Some(taken)
+    }
+
+    fn sync_equipped_with_inventory(&mut self) {
+        let has_item = |inv: &Vec<InventoryItem>, equipped: &InventoryItem| {
+            inv.iter()
+                .any(|it| it.kind == equipped.kind && it.custom_name == equipped.custom_name)
+        };
+        if self
+            .equipped_sword
+            .as_ref()
+            .is_some_and(|eq| !has_item(&self.inventory, eq))
+        {
+            self.equipped_sword = None;
+        }
+        if self
+            .equipped_shield
+            .as_ref()
+            .is_some_and(|eq| !has_item(&self.inventory, eq))
+        {
+            self.equipped_shield = None;
+        }
+        if self
+            .equipped_accessory
+            .as_ref()
+            .is_some_and(|eq| !has_item(&self.inventory, eq))
+        {
+            self.equipped_accessory = None;
         }
     }
 
@@ -1540,12 +1577,12 @@ impl Game {
         let key = (self.player.x, self.player.y);
         let picked = self.ground_items.get(&key).copied();
         if let Some(item) = picked {
-            if self.inventory_full() {
+            if self.add_item_kind_to_inventory(item) {
+                self.ground_items.remove(&key);
+            } else {
                 self.push_log(tr("game.inv_full"));
                 return;
             }
-            self.ground_items.remove(&key);
-            let _ = self.add_item_kind_to_inventory(item);
             self.stat_items_picked = self.stat_items_picked.saturating_add(1);
             self.push_log(trf(
                 "game.picked",
@@ -1727,35 +1764,33 @@ impl Game {
                 true
             }
             Item::StoneAxe | Item::IronSword | Item::IronPickaxe => {
-                let Some(item) = self.take_inventory_one(idx) else {
-                    return false;
-                };
+                let item = self.inventory[idx].clone();
                 let equipped_name = item.display_name();
-                let old = self.equipped_sword.replace(item);
-                if let Some(prev) = old {
-                    self.stash_or_drop_item(prev);
-                    self.push_log(trf(
-                        "game.equipped_item_swap",
-                        &[("item", equipped_name)],
-                    ));
+                let is_same = self
+                    .equipped_sword
+                    .as_ref()
+                    .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name);
+                if is_same {
+                    self.equipped_sword = None;
+                    self.push_log(trf("game.unequipped_item", &[("item", equipped_name)]));
                 } else {
+                    self.equipped_sword = Some(item);
                     self.push_log(trf("game.equipped_item", &[("item", equipped_name)]));
                 }
                 true
             }
             Item::WoodenShield => {
-                let Some(item) = self.take_inventory_one(idx) else {
-                    return false;
-                };
+                let item = self.inventory[idx].clone();
                 let equipped_name = item.display_name();
-                let old = self.equipped_shield.replace(item);
-                if let Some(prev) = old {
-                    self.stash_or_drop_item(prev);
-                    self.push_log(trf(
-                        "game.equipped_slot_swap",
-                        &[("item", equipped_name), ("slot", tr("status.slot.shield").to_string())],
-                    ));
+                let is_same = self
+                    .equipped_shield
+                    .as_ref()
+                    .is_some_and(|eq| eq.kind == item.kind && eq.custom_name == item.custom_name);
+                if is_same {
+                    self.equipped_shield = None;
+                    self.push_log(trf("game.unequipped_item", &[("item", equipped_name)]));
                 } else {
+                    self.equipped_shield = Some(item);
                     self.push_log(trf(
                         "game.equipped_slot",
                         &[("item", equipped_name), ("slot", tr("status.slot.shield").to_string())],
@@ -1764,21 +1799,16 @@ impl Game {
                 true
             }
             Item::LuckyCharm => {
-                let Some(item) = self.take_inventory_one(idx) else {
-                    return false;
-                };
+                let item = self.inventory[idx].clone();
                 let equipped_name = item.display_name();
-                let old = self.equipped_accessory.replace(item);
-                if let Some(prev) = old {
-                    self.stash_or_drop_item(prev);
-                    self.push_log(trf(
-                        "game.equipped_slot_swap",
-                        &[
-                            ("item", equipped_name),
-                            ("slot", tr("status.slot.accessory").to_string()),
-                        ],
-                    ));
+                let is_same = self.equipped_accessory.as_ref().is_some_and(|eq| {
+                    eq.kind == item.kind && eq.custom_name == item.custom_name
+                });
+                if is_same {
+                    self.equipped_accessory = None;
+                    self.push_log(trf("game.unequipped_item", &[("item", equipped_name)]));
                 } else {
+                    self.equipped_accessory = Some(item);
                     self.push_log(trf(
                         "game.equipped_slot",
                         &[
@@ -2031,6 +2061,12 @@ impl Game {
         self.turn = self.turn.saturating_add(1);
         if self.turn.is_multiple_of(3) {
             self.player_hunger = self.player_hunger.saturating_sub(1).max(0);
+        }
+        if self.player_hunger <= 0 && self.player_hp > 0 {
+            self.player_hp = self.player_hp.saturating_sub(1);
+            if self.player_hp <= 0 && self.death_cause.is_none() {
+                self.death_cause = Some(tr("death.cause.hunger").to_string());
+            }
         }
         self.tick_dark_spawn();
         if self.player_hp > 0
@@ -2760,6 +2796,12 @@ impl Game {
             if !self.invincible {
                 self.player_hp -= hit.damage;
                 self.stat_damage_taken = self.stat_damage_taken.saturating_add(hit.damage as u32);
+                if self.player_hp <= 0 && self.death_cause.is_none() {
+                    self.death_cause = Some(trf(
+                        "death.cause.enemy",
+                        &[("enemy", hit.enemy_name.clone())],
+                    ));
+                }
                 self.push_log(trf(
                     "game.enemy_hit_you",
                     &[("enemy", hit.enemy_name), ("damage", hit.damage.to_string())],
@@ -2987,6 +3029,7 @@ impl Game {
             logs: snapshot.logs,
             pending_dialogue: None,
             invincible: false,
+            death_cause: None,
         })
     }
 }

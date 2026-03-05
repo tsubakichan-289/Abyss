@@ -9,7 +9,7 @@ Sources:
 
 - Move: `W/A/S/D` (diagonal: `Q/E/Z/C`)
 - Attack / Confirm: `F`
-- Wait: `.`
+- Wait: `Space`
 - Menu / Back: `V`
 - Quickbar use: `1..9,0`
 - Debug command pane: `/` (debug launch only)
@@ -57,7 +57,7 @@ Notes:
 | `potion` | Potion | Consumable | HP `+6` | No |
 | `herb` | Herb | Consumable | HP `+3` | No |
 | `elixir` | Elixir | Consumable | HP `+12` | No |
-| `food` | Food | Consumable | Hunger `+30` | No |
+| `jerky` | Jerky | Consumable | Hunger `+30` | No |
 | `bread` | Bread | Consumable | Hunger `+20` | No |
 | `torch` | Torch | Tool | Place to light nearby tiles. Can be broken/picked up by attacking | No |
 | `flame_scroll` | Flame Scroll | Magic | MP `2`. Forward flame up to 6 tiles. Can be cast with no target | No |
