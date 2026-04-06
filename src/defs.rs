@@ -12,6 +12,8 @@ struct GameDataFile {
     items: Vec<ItemDefRaw>,
     recipes: Vec<RecipeDefRaw>,
     creatures: Vec<CreatureDefRaw>,
+    #[serde(default)]
+    rituals: RitualsRaw,
 }
 
 #[derive(Deserialize)]
@@ -56,7 +58,30 @@ struct CreatureDefRaw {
     hp: i32,
     attack: i32,
     defense: i32,
+    agility: i32,
     spawn_weight: Option<u32>,
+    #[serde(default)]
+    loot: Vec<CreatureLootRaw>,
+}
+
+#[derive(Deserialize)]
+struct CreatureLootRaw {
+    id: String,
+    carry_chance: u8,
+    #[serde(default = "default_drop_chance")]
+    drop_chance: u8,
+    #[serde(default)]
+    equip_as_weapon: bool,
+}
+
+#[derive(Default, Deserialize)]
+struct RitualsRaw {
+    forge_scroll: Option<ForgeScrollRitualRaw>,
+}
+
+#[derive(Deserialize)]
+struct ForgeScrollRitualRaw {
+    pattern: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -116,7 +141,25 @@ pub(crate) struct CreatureDef {
     pub(crate) hp: i32,
     pub(crate) attack: i32,
     pub(crate) defense: i32,
+    pub(crate) agility: i32,
     pub(crate) spawn_weight: u32,
+    pub(crate) loot: Vec<CreatureLootDef>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct CreatureLootDef {
+    pub(crate) item: Item,
+    pub(crate) carry_chance: u8,
+    pub(crate) drop_chance: u8,
+    pub(crate) equip_as_weapon: bool,
+}
+
+fn default_drop_chance() -> u8 {
+    100
+}
+
+fn is_weapon_item(item: Item) -> bool {
+    matches!(item, Item::StoneAxe | Item::IronSword | Item::IronPickaxe)
 }
 
 pub(crate) struct GameDefs {
@@ -124,6 +167,7 @@ pub(crate) struct GameDefs {
     pub(crate) items: HashMap<String, ItemDef>,
     pub(crate) recipes: Vec<RecipeDef>,
     pub(crate) creatures: HashMap<String, CreatureDef>,
+    pub(crate) forge_scroll_pattern: Vec<(i32, i32, Item)>,
 }
 
 pub(crate) fn defs() -> &'static GameDefs {
@@ -143,10 +187,67 @@ fn parse_single_char(s: &str, kind: &str, id: &str) -> char {
     c
 }
 
+fn default_forge_scroll_pattern() -> Vec<(i32, i32, Item)> {
+    vec![
+        (-1, -1, Item::Wood),
+        (0, -1, Item::Stone),
+        (1, -1, Item::Wood),
+        (-1, 0, Item::Stone),
+        (1, 0, Item::Stone),
+        (-1, 1, Item::Wood),
+        (0, 1, Item::Stone),
+        (1, 1, Item::Wood),
+    ]
+}
+
+fn parse_forge_scroll_pattern(raw: Option<ForgeScrollRitualRaw>) -> Vec<(i32, i32, Item)> {
+    let Some(raw) = raw else {
+        return default_forge_scroll_pattern();
+    };
+    assert!(
+        raw.pattern.len() == 3,
+        "rituals.forge_scroll.pattern must have exactly 3 rows"
+    );
+    let mut out: Vec<(i32, i32, Item)> = Vec::new();
+    let mut center_seen = false;
+    for (y, row) in raw.pattern.iter().enumerate() {
+        let cells: Vec<char> = row.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(
+            cells.len() == 3,
+            "rituals.forge_scroll.pattern row {} must contain exactly 3 non-space chars",
+            y
+        );
+        for (x, ch) in cells.iter().enumerate() {
+            let dx = x as i32 - 1;
+            let dy = y as i32 - 1;
+            match *ch {
+                'w' | 'W' => out.push((dx, dy, Item::Wood)),
+                's' | 'S' => out.push((dx, dy, Item::Stone)),
+                '@' => {
+                    assert!(
+                        dx == 0 && dy == 0,
+                        "rituals.forge_scroll.pattern center '@' must be at middle cell"
+                    );
+                    center_seen = true;
+                }
+                '.' | '-' | '_' => {}
+                _ => panic!(
+                    "rituals.forge_scroll.pattern unknown symbol '{}' (use w/s/@/.)",
+                    ch
+                ),
+            }
+        }
+    }
+    assert!(
+        center_seen,
+        "rituals.forge_scroll.pattern must contain center '@'"
+    );
+    out
+}
+
 fn load_defs() -> GameDefs {
     let raw = include_str!("../data/game_data.toml");
-    let parsed: GameDataFile =
-        toml::from_str(raw).expect("failed to parse data/game_data.toml");
+    let parsed: GameDataFile = toml::from_str(raw).expect("failed to parse data/game_data.toml");
 
     let mut items = HashMap::new();
     for it in parsed.items {
@@ -196,7 +297,11 @@ fn load_defs() -> GameDefs {
 
     let mut recipes = Vec::new();
     for r in parsed.recipes {
-        assert!(r.inputs.len() == 9, "recipe '{}' must have 9 inputs", r.result);
+        assert!(
+            r.inputs.len() == 9,
+            "recipe '{}' must have 9 inputs",
+            r.result
+        );
         let mut inputs: [Option<Item>; 9] = [None; 9];
         for (i, k) in r.inputs.iter().enumerate() {
             let trimmed = k.trim();
@@ -222,6 +327,37 @@ fn load_defs() -> GameDefs {
     for c in parsed.creatures {
         let faction = Faction::from_key(&c.faction)
             .unwrap_or_else(|| panic!("unknown creature faction '{}'", c.faction));
+        let mut loot_defs: Vec<CreatureLootDef> = Vec::new();
+        for loot in c.loot {
+            let item = Item::from_key(&loot.id)
+                .unwrap_or_else(|| panic!("unknown creature loot item '{}'", loot.id));
+            assert!(
+                loot.carry_chance <= 100,
+                "creature '{}' loot '{}' carry_chance must be 0..=100",
+                c.id,
+                loot.id
+            );
+            assert!(
+                loot.drop_chance <= 100,
+                "creature '{}' loot '{}' drop_chance must be 0..=100",
+                c.id,
+                loot.id
+            );
+            if loot.equip_as_weapon {
+                assert!(
+                    is_weapon_item(item),
+                    "creature '{}' loot '{}' marked equip_as_weapon but item is not a weapon",
+                    c.id,
+                    loot.id
+                );
+            }
+            loot_defs.push(CreatureLootDef {
+                item,
+                carry_chance: loot.carry_chance,
+                drop_chance: loot.drop_chance,
+                equip_as_weapon: loot.equip_as_weapon,
+            });
+        }
         creatures.insert(
             c.id.clone(),
             CreatureDef {
@@ -232,7 +368,9 @@ fn load_defs() -> GameDefs {
                 hp: c.hp,
                 attack: c.attack,
                 defense: c.defense,
+                agility: c.agility,
                 spawn_weight: c.spawn_weight.unwrap_or(0),
+                loot: loot_defs,
             },
         );
     }
@@ -246,6 +384,7 @@ fn load_defs() -> GameDefs {
         items,
         recipes,
         creatures,
+        forge_scroll_pattern: parse_forge_scroll_pattern(parsed.rituals.forge_scroll),
     }
 }
 
@@ -270,4 +409,28 @@ pub(crate) fn creature_meta(id: &str) -> &'static CreatureDef {
         .creatures
         .get(id)
         .unwrap_or_else(|| panic!("creature '{}' missing in data file", id))
+}
+
+pub(crate) fn forge_scroll_pattern() -> &'static [(i32, i32, Item)] {
+    defs().forge_scroll_pattern.as_slice()
+}
+
+pub(crate) fn forge_scroll_pattern_lines() -> Vec<String> {
+    let mut grid = [['.'; 3]; 3];
+    grid[1][1] = '@';
+    for &(dx, dy, item) in forge_scroll_pattern() {
+        let x = (dx + 1) as usize;
+        let y = (dy + 1) as usize;
+        if x >= 3 || y >= 3 {
+            continue;
+        }
+        grid[y][x] = match item {
+            Item::Wood => 'w',
+            Item::Stone => 's',
+            _ => '?',
+        };
+    }
+    grid.iter()
+        .map(|row| format!("{} {} {}", row[0], row[1], row[2]))
+        .collect()
 }

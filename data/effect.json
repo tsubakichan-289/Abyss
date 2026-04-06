@@ -89,6 +89,33 @@
         "player": { "color_index": 199, "bold": true },
         "enemy": { "fg": "red", "bold": true }
       }
+    },
+    "ritual_flame": {
+      "base_direction": "N",
+      "auto_rotate": false,
+      "size": 3,
+      "frame_duration": 1,
+      "frames": [
+        [
+          ".*.",
+          ".+.",
+          "..."
+        ],
+        [
+          ".^.",
+          ".*.",
+          "..."
+        ],
+        [
+          "...",
+          ".'.",
+          "..."
+        ]
+      ],
+      "style_presets": {
+        "player": { "color_index": 208, "bold": true },
+        "enemy": { "fg": "red", "bold": true }
+      }
     }
   }
 }

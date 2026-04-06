@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use sha2::{Digest, Sha256};
 
 use crate::game::{Game, GameSnapshot};
@@ -12,7 +13,7 @@ const SAVE_SECRET: &[u8] = b"abyss-save-secret-v1-rotate-if-format-changes";
 #[derive(Serialize, Deserialize)]
 struct SaveEnvelope {
     version: u32,
-    snapshot: GameSnapshot,
+    snapshot: Box<RawValue>,
     mac: String,
 }
 
@@ -26,21 +27,24 @@ fn to_hex(bytes: &[u8]) -> String {
     out
 }
 
-fn compute_mac(version: u32, snapshot: &GameSnapshot) -> Result<String, String> {
-    let snapshot_bytes = serde_json::to_vec(snapshot).map_err(|e| format!("serialize snapshot: {e}"))?;
+fn compute_mac_from_raw(version: u32, snapshot_raw: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(SAVE_SECRET);
     hasher.update(version.to_le_bytes());
-    hasher.update(snapshot_bytes);
-    Ok(to_hex(&hasher.finalize()))
+    hasher.update(snapshot_raw.as_bytes());
+    to_hex(&hasher.finalize())
 }
 
 pub(crate) fn save_game(path: &Path, game: &Game) -> Result<(), String> {
     let snapshot = game.snapshot();
-    let mac = compute_mac(SAVE_VERSION, &snapshot)?;
+    let snapshot_raw =
+        serde_json::to_string(&snapshot).map_err(|e| format!("serialize snapshot: {e}"))?;
+    let mac = compute_mac_from_raw(SAVE_VERSION, &snapshot_raw);
+    let snapshot_box =
+        RawValue::from_string(snapshot_raw).map_err(|e| format!("build raw snapshot: {e}"))?;
     let envelope = SaveEnvelope {
         version: SAVE_VERSION,
-        snapshot,
+        snapshot: snapshot_box,
         mac,
     };
     let bytes = serde_json::to_vec(&envelope).map_err(|e| format!("serialize save: {e}"))?;
@@ -56,12 +60,14 @@ pub(crate) fn load_game(path: &Path) -> Result<Game, String> {
         return Err("unsupported save version".to_string());
     }
 
-    let expected_mac = compute_mac(envelope.version, &envelope.snapshot)?;
+    let expected_mac = compute_mac_from_raw(envelope.version, envelope.snapshot.get());
     if envelope.mac != expected_mac {
         return Err("save file verification failed (tampered or corrupted)".to_string());
     }
 
-    Game::from_snapshot(envelope.snapshot)
+    let snapshot: GameSnapshot = serde_json::from_str(envelope.snapshot.get())
+        .map_err(|e| format!("parse snapshot: {e}"))?;
+    Game::from_snapshot(snapshot)
 }
 
 pub(crate) fn delete_save(path: &Path) -> Result<(), String> {

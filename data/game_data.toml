@@ -48,8 +48,8 @@ id = "forest"
 glyph = "T"
 color = 28
 shadow_color = 22
-walkable = true
-legend = "Forest"
+walkable = false
+legend = "Forest (blocked)"
 harvest_hits = 2
 harvest_drop = "wood"
 harvest_replace = "grass"
@@ -155,6 +155,15 @@ status = "Magic"
 description = "Casts a flame bolt in front. The scroll is not consumed."
 
 [[items]]
+id = "ember_scroll"
+name = "Ember Scroll"
+glyph = "?"
+color = 209
+legend = "Ember Scroll"
+status = "Magic"
+description = "Launches a cinder line that burns the target. The scroll is not consumed."
+
+[[items]]
 id = "blink_scroll"
 name = "Blink Scroll"
 glyph = "?"
@@ -164,6 +173,24 @@ status = "Magic"
 description = "Blinks a short distance forward. The scroll is not consumed."
 
 [[items]]
+id = "bind_scroll"
+name = "Bind Scroll"
+glyph = "?"
+color = 45
+legend = "Bind Scroll"
+status = "Magic"
+description = "Launches a binding bolt that slows the target. The scroll is not consumed."
+
+[[items]]
+id = "repulse_scroll"
+name = "Repulse Scroll"
+glyph = "?"
+color = 159
+legend = "Repulse Scroll"
+status = "Magic"
+description = "Emits a repulsive wave around the caster, slowing and pushing back nearby enemies. The scroll is not consumed."
+
+[[items]]
 id = "nova_scroll"
 name = "Nova Scroll"
 glyph = "?"
@@ -171,6 +198,76 @@ color = 199
 legend = "Nova Scroll"
 status = "Magic"
 description = "Deals damage to all enemies within radius 4. The scroll is not consumed."
+
+[[items]]
+id = "pulse_bomb"
+name = "Pulse Bomb"
+glyph = "*"
+color = 220
+legend = "Pulse Bomb"
+status = "Tool"
+description = "A close-range dispersal charge. Damages and staggers enemies crowding the user."
+
+[[items]]
+id = "forge_scroll"
+name = "Forge Scroll"
+glyph = "?"
+color = 214
+legend = "Forge Scroll"
+status = "Magic"
+description = "Ritual scroll.\nw s w\ns @ s\nw s w\nUse on blood stain (@) to strengthen equipped weapon ATK."
+
+[rituals.forge_scroll]
+pattern = [
+  "w s w",
+  "s @ s",
+  "w s w",
+]
+
+[[items]]
+id = "gladius_nadir"
+name = "Gladius Nadir"
+glyph = "/"
+color = 255
+legend = "Gladius Nadir"
+status = "Weapon"
+description = "An ancient blade that feels heavier near deep machinery."
+
+[[items]]
+id = "ferrum_occasus"
+name = "Ferrum Occasus"
+glyph = "/"
+color = 215
+legend = "Ferrum Occasus"
+status = "Weapon"
+description = "A ritual sword that remembers the shock of collapsing ranks."
+
+[[items]]
+id = "virga_oriens"
+name = "Virga Oriens"
+glyph = "\\"
+color = 208
+legend = "Virga Oriens"
+status = "Weapon"
+description = "An old staff marked by cinder-lit mercy."
+
+[[items]]
+id = "virga_meridies"
+name = "Virga Meridies"
+glyph = "\\"
+color = 120
+legend = "Virga Meridies"
+status = "Weapon"
+description = "A living rod that answers with restraint rather than force."
+
+[[items]]
+id = "virga_zenith"
+name = "Virga Zenith"
+glyph = "\\"
+color = 159
+legend = "Virga Zenith"
+status = "Weapon"
+description = "A staff that bends short distances around sealed stone."
 
 [[items]]
 id = "wood"
@@ -262,6 +359,114 @@ legend = "Lucky Charm"
 status = "Accessory"
 description = "A small charm that slightly boosts attack and defense."
 
+[[items]]
+id = "quartz_memory_knowledge"
+name = "Quartz Memory: Scientia"
+glyph = "*"
+color = 45
+legend = "Quartz memory"
+status = "Record"
+description = "[SCIENTIA-03/07 | restore 31%]\nRecovered from the Apostolic Signal Lattice. Restored lines note paired handling of Subjects III and IV and symbolic-response trials through the Catechism Gate."
+
+[[items]]
+id = "quartz_memory_life"
+name = "Quartz Memory: Vita"
+glyph = "*"
+color = 78
+legend = "Quartz memory"
+status = "Record"
+description = "[VITA-05/07 | restore 27%]\nRecovered from the Helix Perfusion Cradle. Cross-feed between the sibling subjects stabilized, yet neither developed a dedicated offensive morphology under vascular rehearsal."
+
+[[items]]
+id = "quartz_memory_dimension"
+name = "Quartz Memory: Dimensio"
+glyph = "*"
+color = 111
+legend = "Quartz memory"
+status = "Record"
+description = "[DIMENSIO-02/11 | restore 18%]\nFragmentary log from the Shear Ring Annex. Pre-awakening specimen recovered suspended from a cavern ceiling organ and transferred to the Orthogonal Coupling Frame."
+
+[[items]]
+id = "quartz_memory_interface"
+name = "Quartz Memory: Interface"
+glyph = "*"
+color = 117
+legend = "Quartz memory"
+status = "Record"
+description = "[INTERFACE-04/09 | restore 22%]\nBridge test from the Litany Relay Spine. Subject V did not respond to spoken prompts, but the cranial halo accepted twelve seconds of one-way handshake through Port AURELIA."
+
+[[items]]
+id = "quartz_memory_extraction"
+name = "Quartz Memory: Extraction"
+glyph = "*"
+color = 124
+legend = "Quartz memory"
+status = "Record"
+description = "[EXTRACT-06/10 | restore 19%]\nReadout from the Pneuma Bore Array. Filament taps recovered non-linguistic signal clusters from peri-cardial tissue; operators tagged them as key-bearing residues."
+
+[[items]]
+id = "quartz_memory_archive"
+name = "Quartz Memory: Archive"
+glyph = "*"
+color = 187
+legend = "Quartz memory"
+status = "Record"
+description = "[ARCHIVE-02/05 | restore 44%]\nVault index copied from the Sepulcher Stack. Entries list Oriens and Occasus as devotional epochs, then reclassify all later apostolic remains under vivisection and systems intake."
+
+[[items]]
+id = "quartz_memory_cathedral"
+name = "Quartz Memory: Cathedral"
+glyph = "*"
+color = 189
+legend = "Quartz memory"
+status = "Record"
+description = "[CATHEDRAL-08/12 | restore 16%]\nMaintenance strip from the Cathedral Engine. Frame-bells were tuned to match Subject II impact harmonics before release into the lower nave corridor."
+
+[[items]]
+id = "quartz_memory_halo"
+name = "Quartz Memory: Halo"
+glyph = "*"
+color = 153
+legend = "Quartz memory"
+status = "Record"
+description = "[HALO-01/08 | restore 39%]\nCranial assembly note. A six-spoke halo crown was seated over the cervical ring and pinned to the Catechism Gate bus for passive key listening."
+
+[[items]]
+id = "quartz_memory_lung"
+name = "Quartz Memory: Lung"
+glyph = "*"
+color = 114
+legend = "Quartz memory"
+status = "Record"
+description = "[LUNG-03/06 | restore 28%]\nFlow report from the Choral Lung Tower. Pressure organs grown for Subject IV continued singing after tissue separation and were rerouted into coolant hymn lines."
+
+[[items]]
+id = "quartz_memory_ossuary"
+name = "Quartz Memory: Ossuary"
+glyph = "*"
+color = 250
+legend = "Quartz memory"
+status = "Record"
+description = "[OSSUARY-07/09 | restore 24%]\nBone inventory from the Ossuary Rail. Later apostolic remains were sawn into standard lengths to fit carriage teeth and vertebral indexing clamps."
+
+[[items]]
+id = "quartz_memory_choir"
+name = "Quartz Memory: Choir"
+glyph = "*"
+color = 141
+legend = "Quartz memory"
+status = "Record"
+description = "[CHOIR-05/11 | restore 21%]\nAcoustic capture log. The Resonance Choir Array produced stable echo maps only when attendants recited Oriens liturgies through a blood-warm diaphragm cone."
+
+[[items]]
+id = "quartz_memory_witness"
+name = "Quartz Memory: Witness"
+glyph = "*"
+color = 224
+legend = "Quartz memory"
+status = "Record"
+description = "[WITNESS-02/04 | restore 51%]\nHuman testimony filed into the Witness Vault. Surviving staff described Subject V as sleeping, but all monitor petals had already opened toward the Orthogonal Coupling Frame."
+
 [[recipes]]
 result = "stone_axe"
 label = "Stone Axe"
@@ -306,18 +511,24 @@ color = 196
 hp = 20
 attack = 2
 defense = 1
+agility = 5
 spawn_weight = 0
 
 [[creatures]]
-id = "slime"
-name = "Slime"
+id = "melted_husk"
+name = "Melted Husk"
 faction = "hostile"
-glyph = "E"
-color = 160
-hp = 2
-attack = 2
+glyph = "m"
+color = 161
+hp = 6
+attack = 3
 defense = 0
+agility = 2
 spawn_weight = 100
+loot = [
+  { id = "herb", carry_chance = 22, drop_chance = 70 },
+  { id = "potion", carry_chance = 10, drop_chance = 55 },
+]
 
 [[creatures]]
 id = "wanderer"
@@ -328,6 +539,7 @@ color = 117
 hp = 4
 attack = 1
 defense = 0
+agility = 2
 spawn_weight = 0
 
 [[creatures]]
@@ -339,81 +551,354 @@ color = 223
 hp = 6
 attack = 1
 defense = 1
+agility = 3
 spawn_weight = 0
 
 [[creatures]]
-id = "wolf"
-name = "Wolf"
+id = "feral_vessel"
+name = "Feral Vessel"
 faction = "hostile"
-glyph = "W"
-color = 180
-hp = 4
-attack = 3
-defense = 1
-spawn_weight = 70
-
-[[creatures]]
-id = "bat"
-name = "Bat"
-faction = "hostile"
-glyph = "B"
-color = 141
-hp = 3
-attack = 2
-defense = 0
-spawn_weight = 60
-
-[[creatures]]
-id = "golem"
-name = "Golem"
-faction = "hostile"
-glyph = "G"
-color = 246
-hp = 8
-attack = 4
-defense = 2
-spawn_weight = 35
-
-[[creatures]]
-id = "slime_brute"
-name = "Brute Slime"
-faction = "hostile"
-glyph = "S"
-color = 196
-hp = 6
-attack = 3
-defense = 1
-spawn_weight = 55
-
-[[creatures]]
-id = "wolf_alpha"
-name = "Alpha Wolf"
-faction = "hostile"
-glyph = "A"
-color = 214
-hp = 8
+glyph = "v"
+color = 179
+hp = 7
 attack = 5
 defense = 2
-spawn_weight = 40
+agility = 5
+spawn_weight = 70
+loot = [
+  { id = "hide", carry_chance = 55, drop_chance = 75 },
+  { id = "bread", carry_chance = 14, drop_chance = 50 },
+]
 
 [[creatures]]
-id = "bat_night"
-name = "Night Bat"
+id = "choir_mote"
+name = "Choir Mote"
 faction = "hostile"
-glyph = "N"
-color = 99
+glyph = "c"
+color = 147
+hp = 6
+attack = 4
+defense = 1
+agility = 7
+spawn_weight = 60
+loot = [
+  { id = "herb", carry_chance = 14, drop_chance = 45 },
+  { id = "string", carry_chance = 24, drop_chance = 65 },
+]
+
+[[creatures]]
+id = "ash_eater"
+name = "Ash Eater"
+faction = "hostile"
+glyph = "a"
+color = 245
+hp = 4
+attack = 2
+defense = 0
+agility = 6
+spawn_weight = 85
+loot = [
+  { id = "bread", carry_chance = 10, drop_chance = 46 },
+  { id = "herb", carry_chance = 10, drop_chance = 42 },
+]
+
+[[creatures]]
+id = "prayer_remnant"
+name = "Prayer Remnant"
+faction = "hostile"
+glyph = "p"
+color = 188
+hp = 8
+attack = 3
+defense = 2
+agility = 2
+spawn_weight = 58
+loot = [
+  { id = "string", carry_chance = 18, drop_chance = 58 },
+  { id = "flame_scroll", carry_chance = 4, drop_chance = 36 },
+]
+
+[[creatures]]
+id = "stone_warden"
+name = "Stone Warden"
+faction = "hostile"
+glyph = "s"
+color = 244
+hp = 10
+attack = 5
+defense = 3
+agility = 2
+spawn_weight = 42
+loot = [
+  { id = "stone", carry_chance = 76, drop_chance = 82 },
+  { id = "iron_ingot", carry_chance = 12, drop_chance = 48 },
+]
+
+[[creatures]]
+id = "incense_shell"
+name = "Incense Shell"
+faction = "hostile"
+glyph = "i"
+color = 173
 hp = 7
 attack = 4
 defense = 1
-spawn_weight = 35
+agility = 4
+spawn_weight = 48
+loot = [
+  { id = "flame_scroll", carry_chance = 8, drop_chance = 42 },
+  { id = "herb", carry_chance = 8, drop_chance = 38 },
+]
 
 [[creatures]]
-id = "golem_elder"
-name = "Elder Golem"
+id = "tomb_warden"
+name = "Tomb Warden"
 faction = "hostile"
-glyph = "H"
+glyph = "T"
+color = 246
+hp = 11
+attack = 6
+defense = 4
+agility = 2
+spawn_weight = 38
+loot = [
+  { id = "stone", carry_chance = 68, drop_chance = 80 },
+  { id = "iron_ingot", carry_chance = 18, drop_chance = 54 },
+]
+
+[[creatures]]
+id = "grave_frame"
+name = "Grave Frame"
+faction = "hostile"
+glyph = "f"
 color = 250
-hp = 14
+hp = 12
 attack = 7
 defense = 4
+agility = 2
+spawn_weight = 35
+loot = [
+  { id = "stone", carry_chance = 70, drop_chance = 80 },
+  { id = "iron_ingot", carry_chance = 26, drop_chance = 60 },
+]
+
+[[creatures]]
+id = "coffin_bearer"
+name = "Coffin Bearer"
+faction = "hostile"
+glyph = "b"
+color = 137
+hp = 10
+attack = 5
+defense = 3
+agility = 2
+spawn_weight = 34
+loot = [
+  { id = "wood", carry_chance = 34, drop_chance = 68 },
+  { id = "string", carry_chance = 18, drop_chance = 56 },
+  { id = "potion", carry_chance = 8, drop_chance = 36 },
+]
+
+[[creatures]]
+id = "seal_hound"
+name = "Seal Hound"
+faction = "hostile"
+glyph = "d"
+color = 110
+hp = 5
+attack = 4
+defense = 1
+agility = 6
+spawn_weight = 50
+loot = [
+  { id = "hide", carry_chance = 24, drop_chance = 60 },
+  { id = "herb", carry_chance = 8, drop_chance = 34 },
+]
+
+[[creatures]]
+id = "buried_ember"
+name = "Buried Ember"
+faction = "hostile"
+glyph = "e"
+color = 202
+hp = 9
+attack = 5
+defense = 2
+agility = 4
+spawn_weight = 40
+loot = [
+  { id = "ember_scroll", carry_chance = 6, drop_chance = 38 },
+  { id = "flame_scroll", carry_chance = 6, drop_chance = 40 },
+]
+
+[[creatures]]
+id = "engorged_husk"
+name = "Engorged Husk"
+faction = "hostile"
+glyph = "M"
+color = 197
+hp = 14
+attack = 8
+defense = 4
+agility = 3
+spawn_weight = 55
+loot = [
+  { id = "herb", carry_chance = 30, drop_chance = 72 },
+  { id = "potion", carry_chance = 16, drop_chance = 58 },
+]
+
+[[creatures]]
+id = "dominion_vessel"
+name = "Dominion Vessel"
+faction = "hostile"
+glyph = "V"
+color = 215
+hp = 22
+attack = 14
+defense = 7
+agility = 9
+spawn_weight = 40
+loot = [
+  { id = "hide", carry_chance = 64, drop_chance = 80 },
+  { id = "bread", carry_chance = 22, drop_chance = 50 },
+  { id = "elixir", carry_chance = 6, drop_chance = 45 },
+]
+
+[[creatures]]
+id = "night_choir"
+name = "Night Choir"
+faction = "hostile"
+glyph = "C"
+color = 105
+hp = 20
+attack = 13
+defense = 6
+agility = 11
+spawn_weight = 35
+loot = [
+  { id = "blink_scroll", carry_chance = 14, drop_chance = 55 },
+  { id = "string", carry_chance = 30, drop_chance = 66 },
+]
+
+[[creatures]]
+id = "cathedral_frame"
+name = "Cathedral Frame"
+faction = "hostile"
+glyph = "F"
+color = 254
+hp = 34
+attack = 20
+defense = 11
+agility = 6
 spawn_weight = 22
+loot = [
+  { id = "iron_ingot", carry_chance = 42, drop_chance = 72 },
+  { id = "nova_scroll", carry_chance = 10, drop_chance = 52 },
+  { id = "elixir", carry_chance = 12, drop_chance = 62 },
+]
+
+[[creatures]]
+id = "scavenger_knight"
+name = "Scavenger Knight"
+faction = "hostile"
+glyph = "K"
+color = 208
+hp = 24
+attack = 15
+defense = 8
+agility = 10
+spawn_weight = 28
+loot = [
+  { id = "iron_sword", carry_chance = 85, drop_chance = 70, equip_as_weapon = true },
+  { id = "potion", carry_chance = 24, drop_chance = 58 },
+  { id = "bread", carry_chance = 28, drop_chance = 62 },
+]
+
+[[creatures]]
+id = "archive_scribe"
+name = "Archive Scribe"
+faction = "hostile"
+glyph = "R"
+color = 111
+hp = 18
+attack = 11
+defense = 5
+agility = 9
+spawn_weight = 18
+loot = [
+  { id = "quartz_memory_knowledge", carry_chance = 14, drop_chance = 58 },
+  { id = "quartz_memory_archive", carry_chance = 10, drop_chance = 52 },
+  { id = "bind_scroll", carry_chance = 12, drop_chance = 48 },
+  { id = "pulse_bomb", carry_chance = 12, drop_chance = 44 },
+]
+
+[[creatures]]
+id = "carrier_frame"
+name = "Carrier Frame"
+faction = "hostile"
+glyph = "h"
+color = 180
+hp = 14
+attack = 8
+defense = 4
+agility = 3
+spawn_weight = 24
+loot = [
+  { id = "iron_ingot", carry_chance = 28, drop_chance = 62 },
+  { id = "wood", carry_chance = 20, drop_chance = 56 },
+  { id = "quartz_memory_interface", carry_chance = 8, drop_chance = 42 },
+]
+
+[[creatures]]
+id = "specimen_guard"
+name = "Specimen Guard"
+faction = "hostile"
+glyph = "G"
+color = 180
+hp = 16
+attack = 9
+defense = 5
+agility = 4
+spawn_weight = 20
+loot = [
+  { id = "iron_sword", carry_chance = 24, drop_chance = 48, equip_as_weapon = true },
+  { id = "quartz_memory_archive", carry_chance = 8, drop_chance = 40 },
+  { id = "bind_scroll", carry_chance = 8, drop_chance = 40 },
+]
+
+[[creatures]]
+id = "relay_surgeon"
+name = "Relay Surgeon"
+faction = "hostile"
+glyph = "S"
+color = 215
+hp = 22
+attack = 13
+defense = 6
+agility = 8
+spawn_weight = 16
+loot = [
+  { id = "quartz_memory_life", carry_chance = 12, drop_chance = 56 },
+  { id = "quartz_memory_interface", carry_chance = 12, drop_chance = 56 },
+  { id = "ember_scroll", carry_chance = 12, drop_chance = 52 },
+  { id = "repulse_scroll", carry_chance = 10, drop_chance = 46 },
+  { id = "iron_ingot", carry_chance = 26, drop_chance = 64 },
+  { id = "potion", carry_chance = 18, drop_chance = 58 },
+]
+
+[[creatures]]
+id = "flayed_specimen"
+name = "Flayed Specimen"
+faction = "hostile"
+glyph = "X"
+color = 204
+hp = 18
+attack = 10
+defense = 4
+agility = 5
+spawn_weight = 16
+loot = [
+  { id = "quartz_memory_life", carry_chance = 8, drop_chance = 42 },
+  { id = "ember_scroll", carry_chance = 8, drop_chance = 40 },
+  { id = "potion", carry_chance = 12, drop_chance = 50 },
+]

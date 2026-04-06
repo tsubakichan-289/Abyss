@@ -1,0 +1,284 @@
+[[floor_profiles]]
+id = "surface_intro"
+biome_set = "tier_1"
+map_pattern = "perlin"
+terrain_theme = "surface_ruin"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "melted_husk", weight = 100 },
+  { id = "feral_vessel", weight = 72 },
+  { id = "ash_eater", weight = 92 },
+  { id = "prayer_remnant", weight = 36 },
+]
+structure_pool = [
+  { id = "altar", weight = 1 },
+]
+drop_pool = [
+  { id = "potion", weight = 30 },
+  { id = "herb", weight = 30 },
+  { id = "hide", weight = 14 },
+  { id = "iron_ingot", weight = 10 },
+  { id = "flame_scroll", weight = 5 },
+  { id = "blink_scroll", weight = 2 },
+  { id = "nova_scroll", weight = 1 },
+]
+
+[[floor_profiles]]
+id = "faith_ruins"
+biome_set = "tier_1"
+map_pattern = "perlin"
+terrain_theme = "surface_ruin"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "melted_husk", weight = 44 },
+  { id = "feral_vessel", weight = 34 },
+  { id = "ash_eater", weight = 56 },
+  { id = "prayer_remnant", weight = 60 },
+  { id = "choir_mote", weight = 48 },
+  { id = "stone_warden", weight = 34 },
+  { id = "incense_shell", weight = 38 },
+  { id = "tomb_warden", weight = 16 },
+]
+structure_pool = [
+  { id = "altar", weight = 1 },
+]
+drop_pool = [
+  { id = "potion", weight = 28 },
+  { id = "herb", weight = 24 },
+  { id = "hide", weight = 12 },
+  { id = "iron_ingot", weight = 12 },
+  { id = "flame_scroll", weight = 8 },
+  { id = "blink_scroll", weight = 3 },
+  { id = "nova_scroll", weight = 2 },
+]
+
+[[floor_profiles]]
+id = "burial_vein"
+biome_set = "tier_2"
+map_pattern = "rogue"
+terrain_theme = "burial_vein"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "prayer_remnant", weight = 22 },
+  { id = "choir_mote", weight = 18 },
+  { id = "stone_warden", weight = 24 },
+  { id = "incense_shell", weight = 32 },
+  { id = "tomb_warden", weight = 44 },
+  { id = "grave_frame", weight = 42 },
+  { id = "engorged_husk", weight = 26 },
+  { id = "coffin_bearer", weight = 34 },
+  { id = "seal_hound", weight = 36 },
+  { id = "buried_ember", weight = 28 },
+]
+structure_pool = [
+  { id = "altar", weight = 1 },
+  { id = "bone_rack", weight = 2 },
+]
+drop_pool = [
+  { id = "potion", weight = 24 },
+  { id = "herb", weight = 12 },
+  { id = "hide", weight = 14 },
+  { id = "iron_ingot", weight = 22 },
+  { id = "ember_scroll", weight = 2 },
+  { id = "bind_scroll", weight = 1 },
+  { id = "pulse_bomb", weight = 1 },
+  { id = "flame_scroll", weight = 9 },
+  { id = "blink_scroll", weight = 6 },
+  { id = "nova_scroll", weight = 6 },
+  { id = "elixir", weight = 2 },
+]
+
+[[floor_profiles]]
+id = "burial_vein_substory"
+biome_set = "tier_2"
+map_pattern = "rogue"
+terrain_theme = "burial_vein"
+stairs_mode = "normal"
+special_facility_mode = "substory"
+enemy_pool = [
+  { id = "prayer_remnant", weight = 22 },
+  { id = "choir_mote", weight = 18 },
+  { id = "stone_warden", weight = 24 },
+  { id = "incense_shell", weight = 32 },
+  { id = "tomb_warden", weight = 44 },
+  { id = "grave_frame", weight = 42 },
+  { id = "engorged_husk", weight = 26 },
+  { id = "coffin_bearer", weight = 34 },
+  { id = "seal_hound", weight = 36 },
+  { id = "buried_ember", weight = 28 },
+]
+structure_pool = [
+  { id = "altar", weight = 1 },
+  { id = "bone_rack", weight = 2 },
+]
+drop_pool = [
+  { id = "potion", weight = 24 },
+  { id = "herb", weight = 12 },
+  { id = "hide", weight = 14 },
+  { id = "iron_ingot", weight = 22 },
+  { id = "ember_scroll", weight = 2 },
+  { id = "bind_scroll", weight = 1 },
+  { id = "pulse_bomb", weight = 1 },
+  { id = "flame_scroll", weight = 9 },
+  { id = "blink_scroll", weight = 6 },
+  { id = "nova_scroll", weight = 6 },
+  { id = "elixir", weight = 2 },
+]
+
+[[floor_profiles]]
+id = "research_entry"
+biome_set = "tier_2"
+map_pattern = "rogue"
+terrain_theme = "burial_vein"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "tomb_warden", weight = 18 },
+  { id = "grave_frame", weight = 36 },
+  { id = "engorged_husk", weight = 34 },
+  { id = "coffin_bearer", weight = 32 },
+  { id = "seal_hound", weight = 28 },
+  { id = "buried_ember", weight = 24 },
+  { id = "archive_scribe", weight = 26 },
+  { id = "relay_surgeon", weight = 16 },
+  { id = "carrier_frame", weight = 28 },
+  { id = "specimen_guard", weight = 24 },
+  { id = "cathedral_frame", weight = 14 },
+  { id = "scavenger_knight", weight = 16 },
+]
+structure_pool = [
+  { id = "altar", weight = 1 },
+  { id = "temple_core", weight = 1 },
+  { id = "terminal", weight = 4 },
+  { id = "vending_machine", weight = 1 },
+  { id = "bone_rack", weight = 2 },
+  { id = "cable_pylon", weight = 2 },
+]
+drop_pool = [
+  { id = "potion", weight = 22 },
+  { id = "herb", weight = 10 },
+  { id = "hide", weight = 12 },
+  { id = "iron_ingot", weight = 24 },
+  { id = "quartz_memory_knowledge", weight = 2 },
+  { id = "quartz_memory_life", weight = 2 },
+  { id = "quartz_memory_interface", weight = 2 },
+  { id = "ember_scroll", weight = 2 },
+  { id = "bind_scroll", weight = 2 },
+  { id = "pulse_bomb", weight = 2 },
+  { id = "flame_scroll", weight = 10 },
+  { id = "blink_scroll", weight = 7 },
+  { id = "nova_scroll", weight = 8 },
+  { id = "elixir", weight = 4 },
+]
+
+[[floor_profiles]]
+id = "research_threshold"
+biome_set = "tier_3"
+map_pattern = "perlin"
+terrain_theme = "research_shaft"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "engorged_husk", weight = 34 },
+  { id = "coffin_bearer", weight = 18 },
+  { id = "seal_hound", weight = 16 },
+  { id = "buried_ember", weight = 18 },
+  { id = "dominion_vessel", weight = 44 },
+  { id = "night_choir", weight = 34 },
+  { id = "cathedral_frame", weight = 36 },
+  { id = "scavenger_knight", weight = 30 },
+  { id = "archive_scribe", weight = 24 },
+  { id = "carrier_frame", weight = 24 },
+  { id = "specimen_guard", weight = 24 },
+  { id = "relay_surgeon", weight = 24 },
+  { id = "flayed_specimen", weight = 22 },
+]
+structure_pool = [
+  { id = "altar", weight = 2 },
+  { id = "temple_core", weight = 1 },
+  { id = "terminal", weight = 5 },
+  { id = "vending_machine", weight = 1 },
+  { id = "bone_rack", weight = 3 },
+  { id = "cable_pylon", weight = 4 },
+]
+drop_pool = [
+  { id = "potion", weight = 20 },
+  { id = "herb", weight = 8 },
+  { id = "hide", weight = 12 },
+  { id = "iron_ingot", weight = 28 },
+  { id = "quartz_memory_knowledge", weight = 2 },
+  { id = "quartz_memory_life", weight = 2 },
+  { id = "quartz_memory_interface", weight = 2 },
+  { id = "quartz_memory_archive", weight = 1 },
+  { id = "quartz_memory_halo", weight = 1 },
+  { id = "quartz_memory_choir", weight = 1 },
+  { id = "ember_scroll", weight = 2 },
+  { id = "bind_scroll", weight = 2 },
+  { id = "pulse_bomb", weight = 2 },
+  { id = "flame_scroll", weight = 11 },
+  { id = "blink_scroll", weight = 8 },
+  { id = "nova_scroll", weight = 10 },
+  { id = "elixir", weight = 6 },
+]
+
+[[floor_profiles]]
+id = "deep"
+biome_set = "tier_3"
+map_pattern = "perlin"
+terrain_theme = "research_shaft"
+stairs_mode = "normal"
+special_facility_mode = "none"
+enemy_pool = [
+  { id = "incense_shell", weight = 18 },
+  { id = "tomb_warden", weight = 24 },
+  { id = "engorged_husk", weight = 44 },
+  { id = "coffin_bearer", weight = 18 },
+  { id = "seal_hound", weight = 18 },
+  { id = "buried_ember", weight = 22 },
+  { id = "dominion_vessel", weight = 70 },
+  { id = "night_choir", weight = 66 },
+  { id = "cathedral_frame", weight = 72 },
+  { id = "scavenger_knight", weight = 60 },
+  { id = "archive_scribe", weight = 28 },
+  { id = "carrier_frame", weight = 30 },
+  { id = "specimen_guard", weight = 26 },
+  { id = "relay_surgeon", weight = 30 },
+  { id = "flayed_specimen", weight = 18 },
+]
+structure_pool = [
+  { id = "altar", weight = 2 },
+  { id = "temple_core", weight = 2 },
+  { id = "terminal", weight = 5 },
+  { id = "vending_machine", weight = 1 },
+  { id = "bone_rack", weight = 4 },
+  { id = "cable_pylon", weight = 5 },
+]
+drop_pool = [
+  { id = "potion", weight = 16 },
+  { id = "herb", weight = 8 },
+  { id = "hide", weight = 12 },
+  { id = "iron_ingot", weight = 30 },
+  { id = "quartz_memory_knowledge", weight = 2 },
+  { id = "quartz_memory_life", weight = 2 },
+  { id = "quartz_memory_dimension", weight = 3 },
+  { id = "quartz_memory_interface", weight = 2 },
+  { id = "quartz_memory_extraction", weight = 2 },
+  { id = "quartz_memory_archive", weight = 1 },
+  { id = "quartz_memory_cathedral", weight = 2 },
+  { id = "quartz_memory_halo", weight = 2 },
+  { id = "quartz_memory_lung", weight = 2 },
+  { id = "quartz_memory_ossuary", weight = 2 },
+  { id = "quartz_memory_choir", weight = 2 },
+  { id = "quartz_memory_witness", weight = 1 },
+  { id = "ember_scroll", weight = 2 },
+  { id = "bind_scroll", weight = 2 },
+  { id = "repulse_scroll", weight = 2 },
+  { id = "pulse_bomb", weight = 2 },
+  { id = "flame_scroll", weight = 12 },
+  { id = "blink_scroll", weight = 10 },
+  { id = "nova_scroll", weight = 12 },
+  { id = "elixir", weight = 10 },
+]

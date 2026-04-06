@@ -1,3 +1,11 @@
 /target
 
 savegame.json
+savegame_*.json
+.vs/
+.codex
+
+# private lore / design notes
+tale.md
+docs/ancient_arts_ja.md
+docs/floor_setting_ja.md

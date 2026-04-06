@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::Deserialize;
 
@@ -89,6 +89,15 @@ pub(crate) fn tr(key: &str) -> &'static str {
 }
 
 pub(crate) fn trf(key: &str, args: &[(&str, String)]) -> String {
+    let mut out = tr(key).to_string();
+    for (name, value) in args {
+        let pat = format!("{{{name}}}");
+        out = out.replace(&pat, value);
+    }
+    out
+}
+
+pub(crate) fn trf_map(key: &str, args: &[(String, String)]) -> String {
     let mut out = tr(key).to_string();
     for (name, value) in args {
         let pat = format!("{{{name}}}");

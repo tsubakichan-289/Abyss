@@ -1,0 +1,15 @@
+[[biome_sets]]
+id = "all"
+biomes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+[[biome_sets]]
+id = "tier_1"
+biomes = [2, 3, 5, 6, 7]
+
+[[biome_sets]]
+id = "tier_2"
+biomes = [0, 1, 4, 8, 9, 10]
+
+[[biome_sets]]
+id = "tier_3"
+biomes = [11, 12, 13, 14, 15]

@@ -1,0 +1,39 @@
+active = "default"
+
+[[dungeons]]
+id = "default"
+
+[[dungeons.floors]]
+min = 1
+max = 2
+floor_profile = "surface_intro"
+
+[[dungeons.floors]]
+min = 3
+max = 4
+floor_profile = "faith_ruins"
+
+[[dungeons.floors]]
+min = 5
+max = 5
+floor_profile = "burial_vein_substory"
+
+[[dungeons.floors]]
+min = 6
+max = 6
+floor_profile = "burial_vein"
+
+[[dungeons.floors]]
+min = 7
+max = 8
+floor_profile = "research_entry"
+
+[[dungeons.floors]]
+min = 9
+max = 10
+floor_profile = "research_threshold"
+
+[[dungeons.floors]]
+min = 11
+max = 4294967295
+floor_profile = "deep"
