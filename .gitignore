@@ -9,3 +9,7 @@ savegame_*.json
 tale.md
 docs/ancient_arts_ja.md
 docs/floor_setting_ja.md
+
+/.cargo-home/
+
+/.direnv/
